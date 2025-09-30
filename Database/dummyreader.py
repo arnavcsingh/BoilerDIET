@@ -12,7 +12,7 @@ def random_date(start, end):
     seconds = random.randint(0, int(delta.total_seconds()))
     return start + timedelta(seconds=seconds)
 
-def update_user_meal(meal_id, new_item_id=None, new_volume=None):
+def update_user_meal(cursor, cnx, meal_id, new_item_id=None, new_volume=None):
     updates = []
     values = []
 
