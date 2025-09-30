@@ -24,8 +24,8 @@ class PurdueDiningScraper {
                             name stations { 
                                 items { 
                                     hasComponents item { 
-                                        itemId name traits { name } 
-                                        components { itemId name traits {name} } 
+                                        itemId name
+                                        components { itemId name } 
                                     } 
                                 } 
                             } 
@@ -62,14 +62,12 @@ class PurdueDiningScraper {
                             foodItems.push({
                                 itemId: component.itemId,
                                 name: component.name,
-                                traits: (component.traits || []).map(t => t.name),
                             });
                         }
                     } else {
                         foodItems.push({
                             itemId: item.itemId,
                             name: item.name,
-                            traits: (item.traits || []).map(t => t.name),
                         });
                     }
                 }
@@ -88,7 +86,7 @@ class PurdueDiningScraper {
             query: `query getItem($id: Guid!) {  
                 itemByItemId(itemId: $id) {
                     itemId    name    ingredients 
-                    nutritionFacts { dailyValueLabel label name }
+                    nutritionFacts { label name }
                     traits { name } 
                 } 
             }`
