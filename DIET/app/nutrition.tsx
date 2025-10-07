@@ -1,13 +1,55 @@
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
 
 export default function Nutrition() {
     const [selectedDate, setSelectedDate] = useState(null); 
+    let protein = 28;
+    let carbs = 200;
+    let fat = 83;
+    let proteinGoal = 60;
+    let carbsGoal = 225;
+    let fatGoal = 77;
     return (
     <View style={styles.container}>
       <Text style={styles.titleText}>Nutrition Tracker</Text>
       <Calendar onSelectDate={setSelectedDate} selected={selectedDate} />
+      
+      <View style={styles.nutrients}>
+      <Text>Protein {protein}g / {proteinGoal}g</Text>
+    <Progress.Bar 
+        progress={protein/proteinGoal} 
+        width={300} 
+        color={"gold"} 
+        height={15} 
+        borderRadius={6}
+        style={styles.progressBar}
+      />
+      <Text>Carbs {carbs}g / {carbsGoal}g</Text>
+      <Progress.Bar 
+        progress={carbs/carbsGoal} 
+        width={300} 
+        color={"green"} 
+        height={15} 
+        borderRadius={6}
+        style={styles.progressBar}
+      />
+      <Text>Fat {fat}g / {fatGoal}g</Text>
+      <Progress.Bar 
+        progress={fat/fatGoal} 
+        width={300} 
+        color={"pink"} 
+        height={15} 
+        borderRadius={6}
+        style={styles.progressBar}
+      />
+      </View>
+      <Link href='/meal' style={styles.mealButton}>Breakfast</Link>
+      <Link href='/meal' style={styles.mealButton}>Lunch</Link>
+      <Link href='/meal' style={styles.mealButton}>Dinner</Link>
+      <Link href='/camera' style={styles.pictureButton}>Take Picture</Link>
     </View>
     );
 }
@@ -24,5 +66,38 @@ const styles = StyleSheet.create({
     marginTop: 100,
     fontSize: 40,
     fontWeight: 'bold',
+  },
+  nutrients: {
+    marginTop: -30,
+    fontSize: 20,
+    fontWeight: 'bold',
+    backgroundColor: '#ffffffff',
+    padding: 30,
+    borderRadius: 10,
+  },
+  progressBar:{
+    marginBottom: 5,
+  },
+  mealButton:{
+    marginTop:20,
+    padding: 10,
+    backgroundColor: '#ffffffff',
+    fontSize: 30,
+    borderRadius: 25,
+    textAlign: 'left',
+    width: 350,
+    height: 70,
+    textAlignVertical: 'center',
+  },
+  pictureButton:{
+    marginTop:30,
+    padding: 10,
+    backgroundColor: '#000000ff',
+    fontSize: 30,
+    borderRadius: 25,
+    textAlign: 'center',
+    width: 350,
+    marginBottom: 100,
+    color: 'white',
   },
 });

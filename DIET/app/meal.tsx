@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 export default function Meal() {
     return (
     <View style={styles.container}>
-      <Text style={styles.titleText}>Camera</Text>
+      <Text style={styles.titleText}>Meal</Text>
     </View>
     );
 }
