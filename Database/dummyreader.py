@@ -29,6 +29,7 @@ def update_user_meal(cursor, cnx, meal_id, new_item_id=None, new_volume=None):
         cursor.execute(sql, tuple(values))
         cnx.commit()
 
+
 load_dotenv()
 db_password = os.getenv("DB_PASSWORD")
 
