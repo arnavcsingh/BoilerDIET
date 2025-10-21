@@ -1,5 +1,5 @@
-
 import { Camera, CameraView } from "expo-camera";
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from "react";
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -12,6 +12,7 @@ export default function App() {
   const [type, setType] = useState<'back' | 'front'>('back');
   const [photo, setPhoto] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  const router = useRouter();
 
   // Flipping the camera
   const toggleCameraType = () => {
@@ -33,11 +34,12 @@ export default function App() {
 
   // Save photo function
   const savePhoto = () => {
-    // TODO: Add your save logic here
-    // You can save to device, upload to server, or navigate to next screen
-    console.log('Photo saved:', photo);
-    // Example: Navigate to meal details page
-    // router.push({ pathname: '/meal_details', params: { imageUri: photo } });
+    if (photo) {
+      router.push({
+        pathname: '/meal_information', // Adjust this path to match your routing structure
+        params: { imageUri: photo }
+      });
+    }
   };
 
   // Request camera permissions
