@@ -46,9 +46,9 @@ export default function Nutrition() {
         style={styles.progressBar}
       />
       </View>
-      <Link href='/meal' style={styles.mealButton}>Breakfast</Link>
-      <Link href='/meal' style={styles.mealButton}>Lunch</Link>
-      <Link href='/meal' style={styles.mealButton}>Dinner</Link>
+      <Link href='/meal_information' style={styles.mealButton}>Breakfast</Link>
+      <Link href='/meal_information' style={styles.mealButton}>Lunch</Link>
+      <Link href='/meal_information' style={styles.mealButton}>Dinner</Link>
       <Link href='/camera' style={styles.pictureButton}>Take Picture</Link>
     </View>
     );
