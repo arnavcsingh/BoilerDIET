@@ -12,6 +12,10 @@ export default function Nutrition() {
     let proteinGoal = 60;
     let carbsGoal = 225;
     let fatGoal = 77;
+    
+    let barWidth = 300
+    let barHeight = 15
+    let barRadius = 6
     return (
     <View style={styles.container}>
       <Text style={styles.titleText}>Nutrition Tracker</Text>
@@ -21,34 +25,34 @@ export default function Nutrition() {
       <Text>Protein {protein}g / {proteinGoal}g</Text>
     <Progress.Bar 
         progress={protein/proteinGoal} 
-        width={300} 
+        width={barWidth} 
         color={"gold"} 
-        height={15} 
-        borderRadius={6}
+        height={barHeight} 
+        borderRadius={barRadius}
         style={styles.progressBar}
       />
       <Text>Carbs {carbs}g / {carbsGoal}g</Text>
       <Progress.Bar 
         progress={carbs/carbsGoal} 
-        width={300} 
+        width={barWidth} 
         color={"green"} 
-        height={15} 
-        borderRadius={6}
+        height={barHeight} 
+        borderRadius={barRadius}
         style={styles.progressBar}
       />
       <Text>Fat {fat}g / {fatGoal}g</Text>
       <Progress.Bar 
         progress={fat/fatGoal} 
-        width={300} 
+        width={barWidth} 
         color={"pink"} 
-        height={15} 
-        borderRadius={6}
+        height={barHeight} 
+        borderRadius={barRadius}
         style={styles.progressBar}
       />
       </View>
-      <Link href='/meal' style={styles.mealButton}>Breakfast</Link>
-      <Link href='/meal' style={styles.mealButton}>Lunch</Link>
-      <Link href='/meal' style={styles.mealButton}>Dinner</Link>
+      <Link href='/meal_information' style={styles.mealButton}>Breakfast</Link>
+      <Link href='/meal_information' style={styles.mealButton}>Lunch</Link>
+      <Link href='/meal_information' style={styles.mealButton}>Dinner</Link>
       <Link href='/camera' style={styles.pictureButton}>Take Picture</Link>
     </View>
     );

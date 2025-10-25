@@ -1,36 +1,4 @@
-
-// import { Link } from 'expo-router';
-// import { StyleSheet } from 'react-native';
-
-// import { ThemedText } from '@/components/themed-text';
-// import { ThemedView } from '@/components/themed-view';
-
-// export default function ModalScreen() {
-//   return (
-//     <ThemedView style={styles.container}>
-//       <ThemedText type="title">This is a modal</ThemedText>
-//       <Link href="
-// dismissTo style={styles.link}>
-//         <ThemedText type="link">Go to home screen</ThemedText>
-//       </Link>
-//     </ThemedView>
-//   );
-// }
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     padding: 20,
-//   },
-//   link: {
-//     marginTop: 15,
-//     paddingVertical: 15,
-//   },
-// });
-
-//import different React Native features
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Image,
   ScrollView,
@@ -44,7 +12,6 @@ import {
 const mealData = {
   mealName: 'Earhart Lunch', //Dining hall location, change with hall and API
   date: '09/16/2025',//Time data needed to put in here
-  imageUri: 'https://via.placeholder.com/300', // Replace with actual image
   //Information about each food and nutrition value
   //Replace data with information from API
   foods: [
@@ -82,18 +49,23 @@ const mealData = {
     },
   ],
 };
+
 //allows to switch between pages
 export default function MealDetailsPage() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+
+  const imageUri = params.imageUri as string || 'https://via.placeholder.com/300';
 
   const handleBack = () => { //back button, switch pages
-    router.back();
+    router.push('/');
   };
 
   const handleDetails = (foodName: string) => {
     // Navigate to food details or handle action
     console.log(`View details for ${foodName}`);
   };
+
 //header section, all of the buttons at the top of the page
   return (
     <View style={styles.container}>
@@ -117,7 +89,7 @@ export default function MealDetailsPage() {
         {/* Meal Image */}
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: mealData.imageUri }}
+            source={{ uri: imageUri }}
             style={styles.mealImage}
             resizeMode="cover"
           />

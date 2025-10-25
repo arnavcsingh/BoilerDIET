@@ -32,8 +32,8 @@ function convertToGrams(amount, unit) {
 const configureDB = {
   host: 'localhost',
   user: 'your_user',
-  password: 'the_password',
-  database: "the_database"
+  password: 'MySR00tP@s$!',
+  database: "dummydb"
 };
 
 
@@ -42,7 +42,7 @@ async function fetchFromDB(foodName, grams) {
   const connection = await mysql.createConnection(configureDB);
   // fetches the information stores in the DB in the way its configures
   const [rows] = await connection.execute(
-    [foodName.toLowerCase()]
+    [foodName]
   );
   
   await connection.end();
@@ -53,12 +53,13 @@ async function fetchFromDB(foodName, grams) {
   const entry = rows[0]
   const scale = grams / 100; 
   return {
-    food: foodName,
+    food: entry.Name,
     serving: `${grams}g`,
     calories: (entry.calories * scale).toFixed(0),
     protein: (entry.protein * scale).toFixed(1),
     carbs: (entry.carbs * scale).toFixed(1),
     fat: (entry.fat * scale).toFixed(1),
+    allergens: entry.allergens || []
   };
 }
 
@@ -95,12 +96,55 @@ async function calculateNutrition(foodName, amount, unit = "g", useMock = false)
   }
 }
 
+// function to help users avoid their allergens by providing warnings if their chosen meal contains them, and storing them for reference
+function checkAllergens(item, restrictedAllergens) {
+  if(!item.allergens?.length) return null;
+
+  const found = item.allergens.filter(a =>
+    restrictedAllergens.includes(a.toLowerCase())
+  );
+
+  if (found.length > 0) {
+    return `WARNING: ${item.food} contains: ${found.join(", ")}`;
+  }
+  return null;
+}
+
+// function to help users work towards their dietary goals of the day (week later on), showing progress with each meal
+function compareToDailyGoals(totals, userGoals) {
+  const summary = {};
+
+  for (const key of ["calories", "protein", "carbs", "fat"]) {
+    const remaining = userGoals[key] - totals[key];
+    // prints remaining nutritional data goals for rest of day
+    summary[key] = {
+      consumed: totals[key].toFixed(1),
+      goal: userGoals[key],
+      remaining: remaining.toFixed(1),
+      status:
+        totals[key] > userGoals[key]
+          ? "Exceeded"
+          : totals[key] < userGoals[key] * 0.9
+          ? "Below goal"
+          : "Within limit",
+    };
+  }
+
+  return summary;
+}
+
 // finds the nutrition values for a set of items, more realistic for our project
 async function calculateMealNutrition(mealItems, useMock = false) {
   const results = [];
+  const warnings = [];
+
   for (const item of mealItems) {
     const nutrition = await calculateNutrition(item.food, item.amount, item.unit, useMock);
-    if (nutrition) results.push(nutrition);
+    if (nutrition) {
+      const warning = checkAllergens(nutrition, restrictedAllergens);
+      if (warning) warnings.push(warning);
+      results.push(nutrition);
+    }
   }
 
   // calculates and returns total nutritional information for all the items combined
@@ -114,6 +158,7 @@ async function calculateMealNutrition(mealItems, useMock = false) {
 
   return { items: results, totals };
 }
+
 // prompts the user to input the food, amount, and unit (will be changed when implemented into our app to automatically receive the info from the CNNs)
 async function main() {
   const promptModule = await import('prompt-sync');
@@ -121,6 +166,19 @@ async function main() {
 
   console.log("~~~~~ NUTRITION CALCULATOR ~~~~~");
   console.log("Enter each food item below. Type 'quit' to finish.\n");
+
+  // user ipnut of allergens
+  const restructedInput = prompt("Enter allergen restrictions: ");
+  const restrictedAllergens = restructedInput.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+  
+  // user input of nutritional goals for each type
+  console.log("\nSet your daily nutrition goals (press Enter to use defaults).");
+  const userGoals = {
+    calories: Number(prompt("Daily calorie goal (default 2000): ")) || 2000,
+    protein: Number(prompt("Daily protein goal (default 50g): ")) || 50,
+    carbs: Number(prompt("Daily carbs goal (default 275g): ")) || 275,
+    fat: Number(prompt("Daily fat goal (default 70g): ")) || 70
+  };
 
   const mealItems = [];
 
@@ -145,7 +203,8 @@ async function main() {
   }
 
   console.log("\nCalculating nutrition...\n");
-  const {items, totals} = await calculateMealNutrition(mealItems);
+  const {items, totals, warnings} = await calculateMealNutrition(mealItems, restrictedAllergens, true);
+//  const summary = summarizeNutrition(totals, items.length);
 
   // logs each items nutritional values based on inputs
   console.log("Meal Breakdown:");
@@ -155,6 +214,12 @@ async function main() {
     );
   });
 
+  // provides warnings if allergens detected
+  if (warnings.length > 0) {
+    console.log("\nAllergen Warnings: ");
+    warnings.forEach(w => console.log(w));
+  }
+
 // logs total nutrition values
   console.log("\nTotal Nutrition:");
   console.log(
@@ -163,6 +228,15 @@ async function main() {
     `Carbs: ${totals.carbs.toFixed(1)} g\n` +
     `Fat: ${totals.fat.toFixed(1)} g`
   );
+
+  // logs remainder of goals
+  const goalComparison = compareToDailyGoals(totals, userGoals);
+  console.log("\nComparison to Daily Goals:");
+  for (const [nutrient, data] of Object.entries(goalComparison)) {
+    console.log(
+      `${nutrient.toUpperCase()}: Consumed ${data.consumed}/${data.goal} (${data.status}, ${data.remaining} remaining)`
+    );
+  }
 }
 
 main();
