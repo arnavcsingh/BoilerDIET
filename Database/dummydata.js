@@ -1,5 +1,4 @@
 import pool from "./db.js";
-import crypto from "crypto";
 import readline from "readline";
 
 function randomId(length = 8) {
@@ -28,7 +27,7 @@ async function updateUserMeal(mealId, newItemId = null, newVolume = null) {
   if (updates.length > 0) {
     const sql = `UPDATE UserMeals SET ${updates.join(", ")} WHERE Id = ?`;
     values.push(mealId);
-    await pool.execute(sql, values);
+    await pool.query(sql, values);
     console.log(`Meal ${mealId} updated successfully.`);
   } else {
     console.log("No updates provided.");
@@ -49,7 +48,6 @@ function askQuestion(query) {
 }
 
 async function main() {
-  const connection = await pool.getConnection();
   try {
     // Insert dummy Ingredients
     const ingredientsList = [
@@ -64,7 +62,7 @@ async function main() {
     for (const meal of ingredientsList) {
       const itemId = randomId();
       ingredientIds.push(itemId);
-      await connection.execute(
+      await pool.query(
         `INSERT INTO Ingredients (ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [itemId, ...meal]
@@ -79,14 +77,14 @@ async function main() {
     }
 
     for (const user of usersList) {
-      await connection.execute(
+      await pool.query(
         `INSERT INTO Users (UserId, FirstName, LastName, Email, Username)
          VALUES (?, ?, ?, ?, ?)`,
         user
       );
     }
 
-    const [userRows] = await connection.execute("SELECT UserId FROM Users");
+    const [userRows] = await pool.query("SELECT UserId FROM Users");
     const userIds = userRows.map((row) => row.UserId);
 
     // Insert DiningCourtHistory and UserMeals
@@ -102,7 +100,7 @@ async function main() {
       const item = ingredientIds[Math.floor(Math.random() * ingredientIds.length)];
       const volume = (Math.random() * (1.0 - 0.2) + 0.2).toFixed(2);
 
-      await connection.execute(
+      await pool.query(
         `INSERT INTO DiningCourtHistory (DiningCourt, Date, MealType, ItemId, Volume)
          VALUES (?, ?, ?, ?, ?)`,
         [dining, date, meal, item, volume]
@@ -117,7 +115,7 @@ async function main() {
       const item = ingredientIds[Math.floor(Math.random() * ingredientIds.length)];
       const volume = (Math.random() * (1.0 - 0.1) + 0.1).toFixed(2);
 
-      await connection.execute(
+      await pool.query(
         `INSERT INTO UserMeals (UserId, Date, MealType, DiningCourt, ItemId, Volume)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [user, date, meal, dining, item, volume]
@@ -133,9 +131,11 @@ async function main() {
     const newVolume = newVolumeInput ? parseFloat(newVolumeInput) : null;
 
     await updateUserMeal(mealId, newItemId || null, newVolume);
+  } catch (err) {
+    console.error("Error:", err);
   } finally {
-    connection.release();
+    await pool.end();
   }
 }
 
-main().catch((err) => console.error("Error:", err));
+main();

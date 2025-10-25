@@ -27,7 +27,7 @@ export async function createUser({ UserId, FirstName, LastName, Email, Username 
     VALUES (?, ?, ?, ?, ?)
   `;
   await query(sql, [UserId, FirstName, LastName, Email, Username]);
-  console.log(`✅ User ${Username} added`);
+  console.log(`User ${Username} added`);
 }
 
 //Get user by ID
@@ -51,7 +51,7 @@ export async function createIngredient({ ItemId, Name, IngredientDetails, Calori
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
   await query(sql, [ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits]);
-  console.log(`✅ Ingredient ${Name} added`);
+  console.log(`Ingredient ${Name} added`);
 }
 
 //Bulk insert ingredients
@@ -64,7 +64,7 @@ export async function bulkInsertIngredients(ingredients) {
   const conn = await pool.getConnection();
   await conn.query(sql, [values]);
   conn.release();
-  console.log(`✅ Inserted ${ingredients.length} ingredients`);
+  console.log(`Inserted ${ingredients.length} ingredients`);
 }
 
 //Search ingredients
@@ -87,7 +87,7 @@ export async function createDiningCourtHistoryEntry({ DiningCourt, Date, MealTyp
     VALUES (?, ?, ?, ?, ?)
   `;
   await query(sql, [DiningCourt, Date, MealType, ItemId, Volume]);
-  console.log(`✅ Added menu item ${ItemId} for ${DiningCourt} on ${Date}`);
+  console.log(`Added menu item ${ItemId} for ${DiningCourt} on ${Date}`);
 }
 
 //Get dining court menu for date & meal type
@@ -110,14 +110,14 @@ export async function createUserMeal({ UserId, Date, MealType, DiningCourt, Item
     VALUES (?, ?, ?, ?, ?, ?)
   `;
   await query(sql, [UserId, Date, MealType, DiningCourt, ItemId, Volume]);
-  console.log(`✅ Logged meal for user ${UserId}`);
+  console.log(`Logged meal for user ${UserId}`);
 }
 
 //Delete user meal
 export async function deleteUserMeal(mealId, userId) {
   const sql = `DELETE FROM UserMeals WHERE Id = ? AND UserId = ?`;
   const result = await query(sql, [mealId, userId]);
-  console.log(result.affectedRows ? `🗑️ Meal ${mealId} deleted` : `⚠️ No matching meal found`);
+  console.log(result.affectedRows ? `Meal ${mealId} deleted` : `No matching meal found`);
 }
 
 //Get meals for user (optionally by date/meal type)
