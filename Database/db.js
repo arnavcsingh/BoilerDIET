@@ -2,11 +2,13 @@ import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 dotenv.config();
 
+//path: & "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe" -u root -p diningDB > newDB.sql
+
 const pool = mysql.createPool({
   host: "localhost",
   user: "root",
   password: process.env.DB_PASSWORD,
-  database: "dummydb",
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -45,38 +47,69 @@ export async function getUserByUsername(Username) {
 // INGREDIENTS
 
 //Create single ingredient
-export async function createIngredient({ ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits }) {
+export async function createIngredient(food) {
   const sql = `
-    INSERT INTO Ingredients (ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO Foods 
+    (ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits,
+     servingSize, caloriesFromFat, totalFat, saturatedFat, cholesterol, sodium,
+     totalCarbohydrate, sugar, addedSugar, dietaryFiber, calcium, iron)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  await query(sql, [ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits]);
-  console.log(`Ingredient ${Name} added`);
+  const values = [
+    food.ItemId,
+    food.Name,
+    food.IngredientDetails,
+    food.Calories,
+    food.Protein,
+    food.Fat,
+    food.Carbs,
+    food.Traits,
+    food.servingSize,
+    food.caloriesFromFat,
+    food.totalFat,
+    food.saturatedFat,
+    food.cholesterol,
+    food.sodium,
+    food.totalCarbohydrate,
+    food.sugar,
+    food.addedSugar,
+    food.dietaryFiber,
+    food.calcium,
+    food.iron,
+  ];
+  await query(sql, values);
+  console.log(`Ingredient ${food.Name} added`);
 }
 
 //Bulk insert ingredients
-export async function bulkInsertIngredients(ingredients) {
+export async function bulkInsertIngredients(foods) {
   const sql = `
-    INSERT INTO Ingredients (ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits)
+    INSERT INTO Foods
+    (ItemId, Name, IngredientDetails, Calories, Protein, Fat, Carbs, Traits,
+     servingSize, caloriesFromFat, totalFat, saturatedFat, cholesterol, sodium,
+     totalCarbohydrate, sugar, addedSugar, dietaryFiber, calcium, iron)
     VALUES ?
   `;
-  const values = ingredients.map(i => [i.ItemId, i.Name, i.IngredientDetails, i.Calories, i.Protein, i.Fat, i.Carbs, i.Traits]);
+  const values = foods.map(f => [
+    f.ItemId, f.Name, f.IngredientDetails, f.Calories, f.Protein, f.Fat, f.Carbs, f.Traits,
+    f.servingSize, f.caloriesFromFat, f.totalFat, f.saturatedFat, f.cholesterol, f.sodium,
+    f.totalCarbohydrate, f.sugar, f.addedSugar, f.dietaryFiber, f.calcium, f.iron
+  ]);
   const conn = await pool.getConnection();
   await conn.query(sql, [values]);
   conn.release();
-  console.log(`Inserted ${ingredients.length} ingredients`);
+  console.log(`Inserted ${foods.length} ingredients`);
 }
 
 //Search ingredients
 export async function searchIngredients(queryString, limit = 20, offset = 0) {
   const sql = `
-    SELECT * FROM Ingredients
+    SELECT * FROM Foods
     WHERE Name LIKE CONCAT('%', ?, '%')
     LIMIT ? OFFSET ?
   `;
   return await query(sql, [queryString, limit, offset]);
 }
-
 
 // DINING COURT HISTORY
 
@@ -93,9 +126,11 @@ export async function createDiningCourtHistoryEntry({ DiningCourt, Date, MealTyp
 //Get dining court menu for date & meal type
 export async function getDiningCourtMenu(DiningCourt, Date, MealType) {
   const sql = `
-    SELECT d.*, i.Name, i.Calories, i.Traits
+    SELECT d.*, f.Name, f.Calories, f.Protein, f.Fat, f.Carbs, f.Traits,
+           f.servingSize, f.caloriesFromFat, f.totalFat, f.saturatedFat, f.cholesterol,
+           f.sodium, f.totalCarbohydrate, f.sugar, f.addedSugar, f.dietaryFiber, f.calcium, f.iron
     FROM DiningCourtHistory d
-    JOIN Ingredients i ON d.ItemId = i.ItemId
+    JOIN Foods f ON d.ItemId = f.ItemId
     WHERE d.DiningCourt = ? AND d.Date = ? AND d.MealType = ?
   `;
   return await query(sql, [DiningCourt, Date, MealType]);
@@ -123,9 +158,11 @@ export async function deleteUserMeal(mealId, userId) {
 //Get meals for user (optionally by date/meal type)
 export async function getUserMeals(UserId, { startDate = null, endDate = null, mealType = null } = {}) {
   let sql = `
-    SELECT um.*, i.Name, i.Calories, i.Protein, i.Fat, i.Carbs
+    SELECT um.*, f.Name, f.Calories, f.Protein, f.Fat, f.Carbs, f.Traits,
+           f.servingSize, f.caloriesFromFat, f.totalFat, f.saturatedFat, f.cholesterol,
+           f.sodium, f.totalCarbohydrate, f.sugar, f.addedSugar, f.dietaryFiber, f.calcium, f.iron
     FROM UserMeals um
-    JOIN Ingredients i ON um.ItemId = i.ItemId
+    JOIN Foods f ON um.ItemId = f.ItemId
     WHERE um.UserId = ?
   `;
   const params = [UserId];

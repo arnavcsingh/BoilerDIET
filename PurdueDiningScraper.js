@@ -1,4 +1,6 @@
-const axios = require('axios');
+//const axios = require('axios');
+import axios from 'axios';
+
 
 class PurdueDiningScraper {
     constructor() {
@@ -127,4 +129,5 @@ class PurdueDiningScraper {
     }
 }
 
-module.exports = PurdueDiningScraper;
+//module.exports = PurdueDiningScraper;
+export default PurdueDiningScraper;

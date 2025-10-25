@@ -1,6 +1,12 @@
-const PurdueDiningScraper = require('./PurdueDiningScraper');
-const schedule = require('node-schedule');
-const mysql = require('mysql');
+import dotenv from "dotenv";
+dotenv.config();
+import PurdueDiningScraper from './PurdueDiningScraper.js';
+import schedule from 'node-schedule';
+import mysql from 'mysql2';
+//import mysql from 'mysql';
+//const PurdueDiningScraper = require('./PurdueDiningScraper');
+//const schedule = require('node-schedule');
+//const mysql = require('mysql');
 
 class SaveDiningData {
     constructor() {
@@ -71,128 +77,158 @@ class SaveDiningData {
 
     async saveCurrentMenu(date = new Date()) {
         const scraper = new PurdueDiningScraper();
-        for (const diningCourt in this.diningSchedule) {
-            for (const mealType in diningCourt) {
+        const weekday = this.getDayOfWeek(date);
+        for (const [diningCourt, schedule] of Object.entries(this.diningSchedule)) {
+            const meals = schedule[weekday] || [];
+            for (const mealType of meals) {
+                console.log(`Fetching menu for ${diningCourt} - ${mealType} (${date.toISOString().split('T')[0]})`);
                 const result = await scraper.getMenu(diningCourt, mealType, date);
-                if (result.error) throw error;
-                this.saveMenu(diningCourt, mealType, date, result.items);
-                this.saveMenuItems(result.items);
+                if (result.error) {
+                    console.error(`Error fetching ${diningCourt} - ${mealType}:`, result.error);
+                    continue;
+                }
+                await this.saveMenuItems(result.items);
+                await this.saveMenu(diningCourt, mealType, date, result.items);
             }
         }
     }
-
+    getDayOfWeek(date) {
+        return date.toLocaleString('en-US', { weekday: 'long' });
+    }
     saveMenu(diningCourt, mealType, date, items) {
+        if (items.length === 0) return; // skip empty arrays
         let con = mysql.createConnection({
             host: "localhost",
-            user: "yourusername",
-            password: "yourpassword"
+            user: "root",
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME
         });
-
         con.connect(function(error) {
             if (error) throw error;
-            let sql = "INSERT INTO menu (diningCourt, date, mealType, itemName, itemId) VALUES ?";
-            let values = items.map(item => [diningCourt, date.toISOString().split('T')[0], mealType, item.name, item.itemId]);
+            let sql = "INSERT INTO diningcourthistory (DiningCourt, Date, MealType, ItemId, Volume) VALUES ?";
+            let values = items.map(item => [diningCourt, date.toISOString().split('T')[0], mealType, item.itemId, item.volume]);
             con.query(sql, [values], function (err, result) {
                 if (err) throw err;
+                con.end();
             });
         });
-
-        con.end();
     }
 
+
     saveMenuItems(items) {
+        const nutritionMap = this.nutritionMap;
         let con = mysql.createConnection({
             host: "localhost",
-            user: "yourusername",
-            password: "yourpassword"
+            user: "root",
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME
         });
+        return new Promise((resolve, reject) => {
+            con.connect(async (error) => {
+                if (error) return reject(error);
+                let sql = "SELECT itemId FROM foods";
+                const existingItemIds = await new Promise((resolve, reject) => {
+                    con.query(sql, (err, results) => {
+                        if (err) reject(err);
+                        else resolve(results.map(f => f.itemId));
+                    });
+                });
+                const currentItemIds = items.map(i => i.itemId);
+                const scraper = new PurdueDiningScraper();
+                for (const itemId of currentItemIds) {
+                    try {
+                        if (!existingItemIds.includes(itemId)) {
 
-        con.connect(async function(error) {
-            if (error) throw error;
-            let sql = "SELECT itemId FROM items";
-            con.query(sql, function (err, result, fields) {
-                if (err) throw err;
-            });
-            const existingItemIds = fields.map(f => f.itemId);
-            const currentItemIds = items.map(i => i.itemId);
-            const scraper = new PurdueDiningScraper();
-            for (const itemId of currentItemIds) {
-                try {
-                    if (!existingItemIds.has(itemId)) {
+                            const itemData = await scraper.getItem(itemId);
+                            const sql = `
+                                INSERT INTO foods
+                                (itemId, name, IngredientDetails, traits, servingSize, calories, caloriesFromFat, totalFat, saturatedFat, cholesterol, sodium, totalCarbohydrate, sugar, addedSugar, dietaryFiber, protein, calcium, iron)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            `;
 
-                        const itemData = await scraper.getItem(itemId);
-                        const sql = `
-                            INSERT INTO items 
-                            (itemId, name, ingredients, traits, servingSize, calories, caloriesFromFat, totalFat, saturatedFat, cholesterol, sodium, totalCarbohydrate, sugar, addedSugar, dietaryFiber, protein, calcium, iron)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        `;
-
-                        const nutrition = {
-                            servingSize: null,
-                            calories: null,
-                            caloriesFromFat: null,
-                            totalFat: null,
-                            saturatedFat: null,
-                            cholesterol: null,
-                            sodium: null,
-                            totalCarbohydrate: null,
-                            sugar: null,
-                            addedSugar: null,
-                            dietaryFiber: null,
-                            protein: null,
-                            calcium: null,
-                            iron: null
-                        };
-
-                        itemData.nutritionFacts.forEach(n => {
-                            const col = nutritionMap[n.name];
-                            if (col) {
-                                nutrition[col] = n.label;
+                            const nutrition = {
+                                servingSize: null,
+                                calories: null,
+                                caloriesFromFat: null,
+                                totalFat: null,
+                                saturatedFat: null,
+                                cholesterol: null,
+                                sodium: null,
+                                totalCarbohydrate: null,
+                                sugar: null,
+                                addedSugar: null,
+                                dietaryFiber: null,
+                                protein: null,
+                                calcium: null,
+                                iron: null
+                            };
+                            if (itemData.nutritionFacts && Array.isArray(itemData.nutritionFacts)) {
+                                itemData.nutritionFacts.forEach(n => {
+                                    const col = nutritionMap[n.name];
+                                    if (col) {
+                                        nutrition[col] = n.label;
+                                    }
+                                });
                             }
-                        });
+                            const values = [
+                                itemData.itemId,
+                                itemData.name,
+                                JSON.stringify(itemData.ingredients),
+                                JSON.stringify(itemData.traits),
+                                nutrition.servingSize,
+                                nutrition.calories,
+                                nutrition.caloriesFromFat,
+                                nutrition.totalFat,
+                                nutrition.saturatedFat,
+                                nutrition.cholesterol,
+                                nutrition.sodium,
+                                nutrition.totalCarbohydrate,
+                                nutrition.sugar,
+                                nutrition.addedSugar,
+                                nutrition.dietaryFiber,
+                                nutrition.protein,
+                                nutrition.calcium,
+                                nutrition.iron
+                            ];
 
-                        const values = [
-                            itemData.itemId,
-                            itemData.name,
-                            JSON.stringify(itemData.ingredients),
-                            JSON.stringify(itemData.traits),
-                            nutrition.servingSize,
-                            nutrition.calories,
-                            nutrition.caloriesFromFat,
-                            nutrition.totalFat,
-                            nutrition.saturatedFat,
-                            nutrition.cholesterol,
-                            nutrition.sodium,
-                            nutrition.totalCarbohydrate,
-                            nutrition.sugar,
-                            nutrition.addedSugar,
-                            nutrition.dietaryFiber,
-                            nutrition.protein,
-                            nutrition.calcium,
-                            nutrition.iron
-                        ];
-
-                        con.query(sql, values, function (err, result) {
-                            if (err) throw err;
-                        });
+                            await new Promise((resolve, reject) => {
+                                con.query(sql, values, (err, result) => {
+                                    if (err) reject(err);
+                                    else resolve(result);
+                                });
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Error for item ${itemId}:`, err.message);
                     }
-                } catch (err) {
-                    console.error(`Error for item ${item.itemId}:`, err.message);
                 }
-            }
+                con.end();
+                resolve();
+            });
         });
-
-        con.end();
     }
 }
 
 const saver = new SaveDiningData();
+//Testing to ensure it populates database
+(async () => {
+    try {
+        console.log("=== Manual test run started ===");
+        const saver = new SaveDiningData();
+        await saver.saveCurrentMenu(new Date());
+        console.log("=== Manual test run completed ===");
+    } catch (error) {
+        console.error("Manual test run error:", error.message);
+    }
+})();
+
+//Commenting out, just testing right now.
 
 // Schedule daily at midnight
-schedule.scheduleJob('0 0 * * *', async () => {
-    try {
-        await saver.saveCurrentMenu(new Date());
-    } catch (error) {
-        console.error('Scheduled save error:', error.message);
-    }
-});
+//schedule.scheduleJob('0 0 * * *', async () => {
+//    try {
+//        await saver.saveCurrentMenu(new Date());
+//    } catch (error) {
+//        console.error('Scheduled save error:', error.message);
+//    }
+//});

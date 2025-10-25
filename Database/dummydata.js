@@ -1,3 +1,4 @@
+//Not up to date any longer
 import pool from "./db.js";
 import readline from "readline";
 
