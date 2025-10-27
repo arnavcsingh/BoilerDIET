@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { v4 as uuidv4 } from 'uuid';
 dotenv.config();
 import PurdueDiningScraper from './PurdueDiningScraper.js';
 import schedule from 'node-schedule';
@@ -103,18 +104,25 @@ class SaveDiningData {
             password: process.env.DB_PASSWORD,
             database: process.env.DB_NAME
         });
-        con.connect(function(error) {
-            if (error) throw error;
-            let sql = "INSERT INTO diningcourthistory (DiningCourt, Date, MealType, ItemId, Volume) VALUES ?";
-            let values = items.map(item => [diningCourt, date.toISOString().split('T')[0], mealType, item.itemId, item.volume]);
-            con.query(sql, [values], function (err, result) {
+        let foodValues = items.map(item => [item.itemId || uuidv4(), item.name]);
+        let foodSql = "INSERT IGNORE INTO foods (ItemId, Name) VALUES ?";
+        con.query(foodSql, [foodValues], function(err, result) {
+            if (err) throw err;
+            let historyValues = items.map(item => [
+                diningCourt,
+                date.toISOString().split('T')[0],
+                mealType,
+                item.itemId,
+                item.volume
+            ]);
+
+            let historySql = "INSERT INTO diningcourthistory (DiningCourt, Date, MealType, ItemId, Volume) VALUES ?";
+            con.query(historySql, [historyValues], function(err, result) {
                 if (err) throw err;
                 con.end();
             });
         });
     }
-
-
     saveMenuItems(items) {
         const nutritionMap = this.nutritionMap;
         let con = mysql.createConnection({
@@ -171,7 +179,7 @@ class SaveDiningData {
                                 });
                             }
                             const values = [
-                                itemData.itemId,
+                                itemData.itemId || uuidv4(),
                                 itemData.name,
                                 JSON.stringify(itemData.ingredients),
                                 JSON.stringify(itemData.traits),

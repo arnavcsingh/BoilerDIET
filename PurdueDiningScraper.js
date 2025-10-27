@@ -1,6 +1,6 @@
 //const axios = require('axios');
 import axios from 'axios';
-
+import { v4 as uuidv4 } from 'uuid';
 
 class PurdueDiningScraper {
     constructor() {
@@ -62,13 +62,13 @@ class PurdueDiningScraper {
                     if (itemAppearance.hasComponents) {
                         for (const component of item.components) {
                             foodItems.push({
-                                itemId: component.itemId,
+                                itemId: component.itemId || uuidv4(),
                                 name: component.name,
                             });
                         }
                     } else {
                         foodItems.push({
-                            itemId: item.itemId,
+                            itemId: item.itemId  || uuidv4(),
                             name: item.name,
                         });
                     }
