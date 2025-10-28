@@ -4,11 +4,12 @@ import fetch from 'node-fetch';
 // Mock fallback database for testing without API
 // includes food names, calories, nutrition facts based on one serving size
 const mockDatabase = {
-  "scrambled eggs": { calories: 150, protein: 12, carbs: 1, fat: 11 },
-  "pancakes": { calories: 220, protein: 5, carbs: 28, fat: 9 },
-  "rice": { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
-  "grilled cheese": { calories: 340, protein: 10, carbs: 32, fat: 19 },
-  "pork potstickers": { calories: 53, protein: 2, carbs: 8, fat: 1.5 }, 
+  "scrambled eggs": { calories: 150, protein: 12, carbs: 1, fat: 11 , allergens: ["eggs"]},
+  "pancakes": { calories: 220, protein: 5, carbs: 28, fat: 9, allergens: ["gluten", "milk", "eggs"] },
+  "rice": { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, allergens: [""] },
+  "grilled cheese": { calories: 340, protein: 10, carbs: 32, fat: 19, allergens: ["gluten", "milk"] },
+  "pork potstickers": { calories: 53, protein: 2, carbs: 8, fat: 1.5, allergens: ["pork", "soy", "gluten"] }, 
+
   // more items in actual API database
 };
 
@@ -78,6 +79,7 @@ function fetchFromMock(foodName, grams) {
     protein: (entry.protein * scale).toFixed(1),
     carbs: (entry.carbs * scale).toFixed(1),
     fat: (entry.fat * scale).toFixed(1),
+    allergens: entry.allergens || []
   };
 }
 
@@ -134,7 +136,7 @@ function compareToDailyGoals(totals, userGoals) {
 }
 
 // finds the nutrition values for a set of items, more realistic for our project
-async function calculateMealNutrition(mealItems, useMock = false) {
+async function calculateMealNutrition(mealItems, restrictedAllergens, useMock = false) {
   const results = [];
   const warnings = [];
 
@@ -156,7 +158,64 @@ async function calculateMealNutrition(mealItems, useMock = false) {
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
-  return { items: results, totals };
+  return { items: results, totals, warnings };
+}
+
+// Save a completed meal summary into the database, for recall later
+async function saveMealToDatabase(mealItems, totals) {
+  try {
+    const connection = await mysql.createConnection(configureDB);
+    const timestamp = new Date().toISOString();
+
+    // Insert a new meal summary record
+    const [mealResult] = await connection.execute(
+      //INSERT INTO meals (date, calories, protein, carbs, fat) values
+      [timestamp, totals.calories, totals.protein, totals.carbs, totals.fat]
+    );
+    const mealId = mealResult.insertId;
+
+    // Insert each item linked to the meal
+    for (const item of mealItems) {
+      await connection.execute(
+        [
+          mealId,
+          item.food,
+          item.amount,
+          item.unit,
+          item.calories,
+          item.protein,
+          item.carbs,
+          item.fat
+        ]
+      );
+    }
+
+    // send confirmation or error message to the user
+    await connection.end();
+    console.log(`Meal saved successfully with ID: ${mealId}`);
+  } catch (error) {
+    console.error("Error saving meal to database:", error.message);
+  }
+}
+
+// Calculates a health score from 0–100 based on balance and moderation, for dieatray tracking purposes
+function calculateHealthScore(totals, userGoals) {
+  /// calculates user consumption ratios
+  const calorieRatio = totals.calories / userGoals.calories;
+  const proteinRatio = totals.protein / userGoals.protein;
+  const carbRatio = totals.carbs / userGoals.carbs;
+  const fatRatio = totals.fat / userGoals.fat;
+
+  // Ideal ratios near 1.0, where they achieve their goals give the best score
+  // excessive consumption also results in deductions, promoting balance
+  const balancePenalty =
+    Math.abs(1 - proteinRatio) * 15 +
+    Math.abs(1 - carbRatio) * 10 +
+    Math.abs(1 - fatRatio) * 10 +
+    Math.abs(1 - calorieRatio) * 20;
+  // returns results
+  const score = Math.max(0, 100 - balancePenalty);
+  return score.toFixed(1);
 }
 
 // prompts the user to input the food, amount, and unit (will be changed when implemented into our app to automatically receive the info from the CNNs)
@@ -237,6 +296,14 @@ async function main() {
       `${nutrient.toUpperCase()}: Consumed ${data.consumed}/${data.goal} (${data.status}, ${data.remaining} remaining)`
     );
   }
+
+  // calls the saving function to log the meal information onto the database, to be used in later funcions regarding dietary tracking over a week/month
+  await saveMealToDatabase(items, totals);
+
+  // Calculate health score based on meal consumption (to be implemented across several meals for 1 day)
+  const healthScore = calculateHealthScore(totals, userGoals);
+  console.log(`\nHealth Score: ${healthScore}/100`);
+
 }
 
 main();
