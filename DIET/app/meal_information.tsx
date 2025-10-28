@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Image,
   ScrollView,
@@ -127,7 +127,7 @@ export default function MealDetailsPage() {
               style={styles.detailsButton}
               onPress={() => handleDetails(food.name)}
             >
-              <Text style={styles.detailsText}>Details →</Text>
+              <Link href = '/NutritionDetails' style={styles.detailsText}>Details →</Link>
             </TouchableOpacity>
           </View>
         ))}
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
   },
   backButton: {
-    backgroundColor: '#cfb991',
+    backgroundColor: '#CEB888',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   mealInfo: {
-    backgroundColor: '#cfb991',
+    backgroundColor: '#CEB888',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,

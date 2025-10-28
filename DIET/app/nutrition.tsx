@@ -5,7 +5,12 @@ import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
 
 export default function Nutrition() {
-    const [selectedDate, setSelectedDate] = useState(null); 
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  const todayStr = `${year}-${month}-${day}`
+  const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
     let protein = 28;
     let carbs = 200;
     let fat = 83;
