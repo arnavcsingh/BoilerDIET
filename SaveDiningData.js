@@ -168,7 +168,7 @@ class SaveDiningData {
                 }
                 for (const itemId of currentItemIds) {
                     try {
-                        if (!existingItemIds.includes(itemId) || !itemHasNutrition(itemId)) {
+                        if (!existingItemIds.includes(itemId) || !(await itemHasNutrition(itemId))) {
                             const itemDataResponse = await scraper.getItem(itemId);
                             if (itemDataResponse.error) {
                                 console.warn(`Skipping ${itemId}: ${itemDataResponse.error}`);
@@ -202,12 +202,10 @@ class SaveDiningData {
                                 itemData.nutritionFacts.forEach(n => {
                                     const col = nutritionMap[n.name];
                                     if (col) {
-                                        if (col) {
-                                            if (col === "servingSize" || col === "calories") {
-                                                nutrition[col] = n.label;
-                                            } else {
-                                                nutrition[col] = cleanNumber(n.label);
-                                            }
+                                        if (col === "servingSize" || col === "calories") {
+                                            nutrition[col] = n.label;
+                                        } else {
+                                            nutrition[col] = cleanNumber(n.label);
                                         }
                                     }
                                 });
@@ -257,7 +255,6 @@ const saver = new SaveDiningData();
 (async () => {
     try {
         console.log("=== Manual test run started ===");
-        const saver = new SaveDiningData();
         await saver.saveCurrentMenu(new Date());
         console.log("=== Manual test run completed ===");
     } catch (error) {
