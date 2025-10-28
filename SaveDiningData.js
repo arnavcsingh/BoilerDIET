@@ -124,6 +124,17 @@ class SaveDiningData {
         });
     }
     saveMenuItems(items) {
+        function cleanNumber(value) {
+        if (value === null || value === undefined) return null;
+        if (typeof value === "string") {
+            value = value.toLowerCase().trim();
+            value = value.replace(/,/g, '');
+            value = value.replace(/[^0-9.]/g, '');
+            if (value === "") return null;
+        }
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? null : parsed;
+        }
         const nutritionMap = this.nutritionMap;
         let con = mysql.createConnection({
             host: "localhost",
@@ -143,13 +154,30 @@ class SaveDiningData {
                 });
                 const currentItemIds = items.map(i => i.itemId);
                 const scraper = new PurdueDiningScraper();
+                function itemHasNutrition(itemId) {
+                    return new Promise((resolve) => {
+                        con.query(
+                            "SELECT calories FROM foods WHERE itemId = ?",
+                            [itemId],
+                            (err, results) => {
+                                if (err || results.length === 0) return resolve(false);
+                                resolve(results[0].calories !== null);
+                            }
+                        );
+                    });
+                }
                 for (const itemId of currentItemIds) {
                     try {
-                        if (!existingItemIds.includes(itemId)) {
-
-                            const itemData = await scraper.getItem(itemId);
+                        if (!existingItemIds.includes(itemId) || !itemHasNutrition(itemId)) {
+                            const itemDataResponse = await scraper.getItem(itemId);
+                            if (itemDataResponse.error) {
+                                console.warn(`Skipping ${itemId}: ${itemDataResponse.error}`);
+                                continue;
+                            }
+                            const itemData = itemDataResponse.item[0];
+                            console.log(`Got nutrition for ${itemData.name}: ${itemData.nutritionFacts.length} facts`);
                             const sql = `
-                                INSERT INTO foods
+                                INSERT IGNORE INTO foods
                                 (itemId, name, IngredientDetails, traits, servingSize, calories, caloriesFromFat, totalFat, saturatedFat, cholesterol, sodium, totalCarbohydrate, sugar, addedSugar, dietaryFiber, protein, calcium, iron)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             `;
@@ -174,10 +202,17 @@ class SaveDiningData {
                                 itemData.nutritionFacts.forEach(n => {
                                     const col = nutritionMap[n.name];
                                     if (col) {
-                                        nutrition[col] = n.label;
+                                        if (col) {
+                                            if (col === "servingSize" || col === "calories") {
+                                                nutrition[col] = n.label;
+                                            } else {
+                                                nutrition[col] = cleanNumber(n.label);
+                                            }
+                                        }
                                     }
                                 });
                             }
+
                             const values = [
                                 itemData.itemId || uuidv4(),
                                 itemData.name,
