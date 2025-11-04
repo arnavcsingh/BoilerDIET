@@ -104,22 +104,36 @@ class SaveDiningData {
             password: process.env.DB_PASSWORD,
             database: process.env.DB_NAME
         });
-        let foodValues = items.map(item => [item.itemId || uuidv4(), item.name]);
+        // Ensure we assign and reuse IDs so the foods and history rows reference the same ItemId
+        const dateStr = date.toISOString().split('T')[0];
+        const assigned = items.map(item => ({
+            assignedId: item.itemId || uuidv4(),
+            name: item.name,
+            volume: item.volume
+        }));
+
+        let foodValues = assigned.map(a => [a.assignedId, a.name]);
         let foodSql = "INSERT IGNORE INTO foods (ItemId, Name) VALUES ?";
         con.query(foodSql, [foodValues], function(err, result) {
-            if (err) throw err;
-            let historyValues = items.map(item => [
+            if (err) {
+                console.error('Error inserting foods:', err.message);
+                try { con.end(); } catch (e) {}
+                return;
+            }
+            let historyValues = assigned.map(a => [
                 diningCourt,
-                date.toISOString().split('T')[0],
+                dateStr,
                 mealType,
-                item.itemId,
-                item.volume
+                a.assignedId,
+                a.volume
             ]);
 
             let historySql = "INSERT INTO diningcourthistory (DiningCourt, Date, MealType, ItemId, Volume) VALUES ?";
             con.query(historySql, [historyValues], function(err, result) {
-                if (err) throw err;
-                con.end();
+                if (err) {
+                    console.error('Error inserting diningcourthistory:', err.message);
+                }
+                try { con.end(); } catch (e) {}
             });
         });
     }
@@ -145,7 +159,8 @@ class SaveDiningData {
         return new Promise((resolve, reject) => {
             con.connect(async (error) => {
                 if (error) return reject(error);
-                let sql = "SELECT itemId FROM foods";
+                // Alias ItemId to itemId so returned rows have a consistent JS key (itemId)
+                let sql = "SELECT ItemId AS itemId FROM foods";
                 const existingItemIds = await new Promise((resolve, reject) => {
                     con.query(sql, (err, results) => {
                         if (err) reject(err);
@@ -157,7 +172,7 @@ class SaveDiningData {
                 function itemHasNutrition(itemId) {
                     return new Promise((resolve) => {
                         con.query(
-                            "SELECT calories FROM foods WHERE itemId = ?",
+                            "SELECT calories FROM foods WHERE ItemId = ?",
                             [itemId],
                             (err, results) => {
                                 if (err || results.length === 0) return resolve(false);

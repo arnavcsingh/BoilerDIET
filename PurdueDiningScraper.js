@@ -12,6 +12,33 @@ class PurdueDiningScraper {
         };        
     }
 
+    // Simple request helper with retry + exponential backoff for transient network errors
+    async requestWithRetry(jsonData, attempts = 3, timeout = 10000) {
+        let attempt = 0;
+        while (attempt < attempts) {
+            try {
+                const response = await axios.post(
+                    'https://api.hfs.purdue.edu/menus/v3/GraphQL',
+                    jsonData,
+                    { headers: this.headers, timeout }
+                );
+                return response;
+            } catch (err) {
+                attempt++;
+                const code = err.code || err.response?.status || 'NO_CODE';
+                // If we've exhausted attempts, rethrow with helpful context
+                if (attempt >= attempts) {
+                    err.message = `Failed after ${attempt} attempts: ${err.message}`;
+                    throw err;
+                }
+                // For transient errors, wait and retry
+                const backoffMs = 250 * Math.pow(2, attempt); // 500, 1000, ...
+                console.warn(`Request attempt ${attempt} failed (code=${code}). Retrying in ${backoffMs}ms...`);
+                await new Promise(r => setTimeout(r, backoffMs));
+            }
+        }
+    }
+
     async getMenu(diningCourt, mealType, date = new Date()) {
 
         date = date.toLocaleDateString('en-CA');
@@ -38,15 +65,12 @@ class PurdueDiningScraper {
         };
 
         try {
-            const response = await axios.post(
-                'https://api.hfs.purdue.edu/menus/v3/GraphQL',
-                jsonData,
-                { headers: this.headers }
-            );
-
+            const response = await this.requestWithRetry(jsonData, 3, 10000);
             return this.parseMenuData(response.data, mealType);
         } catch (error) {
-            return { error: `Failed to fetch menu data: ${error.message}`, items: [] };
+            // Provide clearer messages for common node/network errors
+            const code = error.code || (error.response && error.response.status) || 'UNKNOWN';
+            return { error: `Failed to fetch menu data (${code}): ${error.message}`, items: [] };
         }
     }
 
@@ -95,15 +119,11 @@ class PurdueDiningScraper {
         };
 
         try {
-            const response = await axios.post(
-                'https://api.hfs.purdue.edu/menus/v3/GraphQL',
-                jsonData,
-                { headers: this.headers }
-            );
-
+            const response = await this.requestWithRetry(jsonData, 3, 10000);
             return this.parseItemData(response.data, itemId);
         } catch (error) {
-            return { error: `Failed to fetch item data: ${error.message}`, item: [] };
+            const code = error.code || (error.response && error.response.status) || 'UNKNOWN';
+            return { error: `Failed to fetch item data (${code}): ${error.message}`, item: [] };
         }
     }
 
