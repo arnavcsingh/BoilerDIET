@@ -27,6 +27,7 @@ export default function HomeScreen() {
       setItems={setItems}
       style={styles.hallPicker}
     />
+    <Link href='/manual_logging' style={styles.nutritionButton}>Manual Logging</Link>
     <Link href='/nutrition' style={styles.nutritionButton}>View History</Link>
     <Link href='/camera' style={styles.cameraButton}>Take Picture</Link>
     </View>
@@ -45,7 +46,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   descText:{
-    marginBottom: 150,
+    marginBottom: 100,
   },
   hallPicker:{
     marginBottom: 50,
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   nutritionButton: {
-    marginBottom:200,
+    marginBottom:100,
     padding: 20,
     backgroundColor: '#000000ff',
     color: '#ffffff',

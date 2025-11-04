@@ -10,6 +10,7 @@ export default function HomeLayout() {
       <Stack.Screen name="nutrition" />
       <Stack.Screen name="meal" />
       <Stack.Screen name="NutritionDetails"/>
+      <Stack.Screen name="manual_logging"/>
     </Stack>
   );
 }
