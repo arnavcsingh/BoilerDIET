@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
-import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Mock fallback database for testing without API
 // includes food names, calories, nutrition facts based on one serving size
@@ -9,8 +10,6 @@ const mockDatabase = {
   "rice": { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, allergens: [""] },
   "grilled cheese": { calories: 340, protein: 10, carbs: 32, fat: 19, allergens: ["gluten", "milk"] },
   "pork potstickers": { calories: 53, protein: 2, carbs: 8, fat: 1.5, allergens: ["pork", "soy", "gluten"] }, 
-
-  // more items in actual API database
 };
 
 // Converts commonly used units for measurements to grams
@@ -25,61 +24,107 @@ function convertToGrams(amount, unit) {
     tbsp: 15,
     tsp: 5
   };
-  // converts the amount to g with the lowercase formatted unit, in case user uses uppercase
-  return amount * (conversions[unit.toLowerCase()] || 1);
+  return amount * (conversions[(unit || '').toLowerCase()] || 1);
 }
 
-// sets up the formatting of the data to be fetched from the DB
+// DB configuration from environment (.env)
 const configureDB = {
-  host: 'localhost',
-  user: 'your_user',
-  password: 'MySR00tP@s$!',
-  database: "dummydb"
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'diningDB',
+  waitForConnections: true,
+  connectionLimit: 5
 };
 
 
 // Fetch nutrition facts from our DB
 async function fetchFromDB(foodName, grams) {
   const connection = await mysql.createConnection(configureDB);
-  // fetches the information stores in the DB in the way its configures
-  const [rows] = await connection.execute(
-    [foodName]
-  );
-  
-  await connection.end();
+  try {
+    // Try to find an exact match (case-insensitive) on the Name column
+    const sql = `SELECT * FROM foods WHERE LOWER(Name) = LOWER(?) LIMIT 1`;
+    const [rows] = await connection.execute(sql, [foodName]);
 
-  if (!rows.length) return null;
+    if (!rows || rows.length === 0) return null;
 
-  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
-  const entry = rows[0]
-  const scale = grams / 100; 
-  return {
-    food: entry.Name,
-    serving: `${grams}g`,
-    calories: (entry.calories * scale).toFixed(0),
-    protein: (entry.protein * scale).toFixed(1),
-    carbs: (entry.carbs * scale).toFixed(1),
-    fat: (entry.fat * scale).toFixed(1),
-    allergens: entry.allergens || []
-  };
+    const entry = rows[0];
+    // Normalize column names (some dumps use different casing)
+    const rawCalories = entry.calories ?? entry.Calories ?? entry.Calorie ?? null;
+    const rawProtein = entry.protein ?? entry.Protein ?? null;
+    const rawCarbs = entry.carbs ?? entry.totalCarbohydrate ?? entry.totalcarbohydrate ?? null;
+    const rawFat = entry.fat ?? entry.totalFat ?? entry.totalfat ?? null;
+    let rawAllergens = entry.allergens ?? entry.Traits ?? null;
+
+    // Normalize allergens into a real array. Handle JSON strings, comma lists, or single values.
+    let allergensArr = [];
+    if (Array.isArray(rawAllergens)) {
+      allergensArr = rawAllergens;
+    } else if (typeof rawAllergens === 'string') {
+      const s = rawAllergens.trim();
+      if (s.length === 0) {
+        allergensArr = [];
+      } else {
+        try {
+          const parsed = JSON.parse(s);
+          if (Array.isArray(parsed)) allergensArr = parsed;
+          else if (typeof parsed === 'string') allergensArr = [parsed];
+          else allergensArr = [];
+        } catch (e) {
+          // Not JSON — try comma-separated
+          allergensArr = s.split(',').map(a => a.trim()).filter(Boolean);
+        }
+      }
+    } else {
+      allergensArr = [];
+    }
+
+    const scale = grams / 100;
+    const toNumber = v => (v == null ? null : Number(v));
+    const calNum = toNumber(rawCalories);
+    const protNum = toNumber(rawProtein);
+    const carbNum = toNumber(rawCarbs);
+    const fatNum = toNumber(rawFat);
+
+    const scaledCalories = calNum != null ? Math.round(calNum * scale) : null;
+    const scaledProtein = protNum != null ? Math.round(protNum * scale * 10) / 10 : null;
+    const scaledCarbs = carbNum != null ? Math.round(carbNum * scale * 10) / 10 : null;
+    const scaledFat = fatNum != null ? Math.round(fatNum * scale * 10) / 10 : null;
+
+    return {
+      food: entry.Name || entry.name,
+      serving: `${grams}g`,
+      calories: scaledCalories,
+      protein: scaledProtein,
+      carbs: scaledCarbs,
+      fat: scaledFat,
+      allergens: allergensArr
+    };
+  } finally {
+    await connection.end();
+  }
 }
 
-// Fetches nutirtion info from mock database if it cant access the API
+// Fetches nutrition info from mock database
 function fetchFromMock(foodName, grams) {
   const entry = mockDatabase[foodName.toLowerCase()];
-  // returns null if food item doesnt exist in food database
   if (!entry) return null;
 
-  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
-  const scale = grams / 100; 
+  const scale = grams / 100;
+  const cal = entry.calories != null ? Math.round(entry.calories * scale) : null;
+  const prot = entry.protein != null ? Math.round(entry.protein * scale * 10) / 10 : null;
+  const carbs = entry.carbs != null ? Math.round(entry.carbs * scale * 10) / 10 : null;
+  const fat = entry.fat != null ? Math.round(entry.fat * scale * 10) / 10 : null;
+  const allergens = Array.isArray(entry.allergens) ? entry.allergens : (typeof entry.allergens === 'string' ? entry.allergens.split(',').map(a=>a.trim()).filter(Boolean) : []);
+
   return {
     food: foodName,
     serving: `${grams}g`,
-    calories: (entry.calories * scale).toFixed(0),
-    protein: (entry.protein * scale).toFixed(1),
-    carbs: (entry.carbs * scale).toFixed(1),
-    fat: (entry.fat * scale).toFixed(1),
-    allergens: entry.allergens || []
+    calories: cal,
+    protein: prot,
+    carbs: carbs,
+    fat: fat,
+    allergens: allergens
   };
 }
 
@@ -167,9 +212,36 @@ async function saveMealToDatabase(mealItems, totals) {
     const connection = await mysql.createConnection(configureDB);
     const timestamp = new Date().toISOString();
 
-    // Insert a new meal summary record
+    // Ensure minimal tables exist: Meals and MealItems
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS Meals (
+        Id INT AUTO_INCREMENT PRIMARY KEY,
+        CreatedAt DATETIME NOT NULL,
+        Calories FLOAT,
+        Protein FLOAT,
+        Carbs FLOAT,
+        Fat FLOAT
+      ) ENGINE=InnoDB;
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS MealItems (
+        Id INT AUTO_INCREMENT PRIMARY KEY,
+        MealId INT NOT NULL,
+        Name VARCHAR(255),
+        Amount FLOAT,
+        Unit VARCHAR(50),
+        Calories FLOAT,
+        Protein FLOAT,
+        Carbs FLOAT,
+        Fat FLOAT,
+        FOREIGN KEY (MealId) REFERENCES Meals(Id) ON DELETE CASCADE
+      ) ENGINE=InnoDB;
+    `);
+
+    // Insert meal summary
     const [mealResult] = await connection.execute(
-      //INSERT INTO meals (date, calories, protein, carbs, fat) values
+      `INSERT INTO Meals (CreatedAt, Calories, Protein, Carbs, Fat) VALUES (?, ?, ?, ?, ?)`,
       [timestamp, totals.calories, totals.protein, totals.carbs, totals.fat]
     );
     const mealId = mealResult.insertId;
@@ -177,20 +249,11 @@ async function saveMealToDatabase(mealItems, totals) {
     // Insert each item linked to the meal
     for (const item of mealItems) {
       await connection.execute(
-        [
-          mealId,
-          item.food,
-          item.amount,
-          item.unit,
-          item.calories,
-          item.protein,
-          item.carbs,
-          item.fat
-        ]
+        `INSERT INTO MealItems (MealId, Name, Amount, Unit, Calories, Protein, Carbs, Fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [mealId, item.food, item.amount, item.unit, item.calories, item.protein, item.carbs, item.fat]
       );
     }
 
-    // send confirmation or error message to the user
     await connection.end();
     console.log(`Meal saved successfully with ID: ${mealId}`);
   } catch (error) {
@@ -306,4 +369,10 @@ async function main() {
 
 }
 
-main();
+// Only run interactive main when executed directly, not when imported for tests
+if (process.argv[1] && process.argv[1].toLowerCase().endsWith('db-nutrition-calc.js')) {
+  main();
+}
+
+// Export useful functions for programmatic use / testing
+export { calculateMealNutrition, saveMealToDatabase, calculateNutrition };
