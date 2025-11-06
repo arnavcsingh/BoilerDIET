@@ -1,85 +1,73 @@
-// Mock fallback database for testing without API
-// includes food names, calories, nutrition facts based on one serving size
-const mockDatabase = {
-  "scrambled eggs": { calories: 150, protein: 12, carbs: 1, fat: 11 , allergens: ["eggs"]},
-  "pancakes": { calories: 220, protein: 5, carbs: 28, fat: 9, allergens: ["gluten", "milk", "eggs"] },
-  "rice": { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, allergens: [""] },
-  "grilled cheese": { calories: 340, protein: 10, carbs: 32, fat: 19, allergens: ["gluten", "milk"] },
-  "pork potstickers": { calories: 53, protein: 2, carbs: 8, fat: 1.5, allergens: ["pork", "soy", "gluten"] }, 
+// Client wrapper for the server-side nutrition API.
+// The mobile app (Expo/React Native) cannot import Node native modules
+// (mysql2, dotenv, etc.), so this wrapper performs HTTP calls to the
+// Express API running locally or on your dev machine.
 
-  // more items in actual API database
-};
+// Configure the API base URL before starting Expo. Recommended options:
+// - For Android emulator (AVD): use 'http://10.0.2.2:3000'
+// - For Genymotion: 'http://10.0.3.2:3000'
+// - For a physical device: use your PC LAN IP, e.g. 'http://192.168.1.42:3000'
+// You can set `global.NUTRITION_API_BASE = 'http://192.168.x.y:3000'` in App startup
+// or pass `baseUrl` to each function.
 
-// Converts commonly used units for measurements to grams
-function convertToGrams(amount, unit) {
-  const conversions = {
-    g: 1,
-    kg: 1000,
-    oz: 28.35,
-    lb: 453.6,
-    ml: 1, // assume density 1g/ml for liquids
-    cup: 240,
-    tbsp: 15,
-    tsp: 5
-  };
-  // converts the amount to g with the lowercase formatted unit, in case user uses uppercase
-  return amount * (conversions[unit.toLowerCase()] || 1);
+const DEFAULT_BASES = [
+	'http://10.0.2.2:3000', // Android emulator
+	'http://localhost:3000',
+	'http://127.0.0.1:3000'
+];
+
+function resolveBase(baseUrl) {
+	if (baseUrl) return baseUrl;
+	if (global?.NUTRITION_API_BASE) return global.NUTRITION_API_BASE;
+	// Pick the first likely host; the developer can override when needed.
+	return DEFAULT_BASES[0];
 }
 
-// sets up the formatting of the data to be fetched from the DB
-
-// Fetches nutirtion info from mock database if it cant access the API
-function fetchFromMock(foodName, grams) {
-  const entry = mockDatabase[foodName.toLowerCase()];
-  // returns null if food item doesnt exist in food database
-  if (!entry) return null;
-
-  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
-  const scale = grams / 100; 
-  return {
-    food: foodName,
-    serving: `${grams}g`,
-    calories: (entry.calories * scale).toFixed(0),
-    protein: (entry.protein * scale).toFixed(1),
-    carbs: (entry.carbs * scale).toFixed(1),
-    fat: (entry.fat * scale).toFixed(1),
-    allergens: entry.allergens || []
-  };
+async function getJson(url, opts) {
+	const res = await fetch(url, opts);
+	const text = await res.text();
+	try { return JSON.parse(text); } catch (_e) { throw new Error(`Invalid JSON from ${url}: ${text}`); }
 }
 
-// tries DB first, falls back to mock database if not
-export async function calculateNutrition(foodName, amount, unit = "g", useMock = True) {
-  const grams = convertToGrams(amount, unit);
-
-  try {
-    if (useMock) return fetchFromMock(foodName, grams);
-    return await fetchFromDB(foodName, grams);
-  } 
-  
-  catch (err) {
-    console.warn("Falling back to mock database: ", err.message);
-    return fetchFromMock(foodName, grams);
-  }
+export async function calculateNutrition(foodName, amount = 100, unit = 'g', useMock = false, baseUrl) {
+	const base = resolveBase(baseUrl);
+	const qs = new URLSearchParams({ food: String(foodName), amount: String(amount), unit, mock: useMock ? 'true' : 'false' });
+	const url = `${base.replace(/\/$/, '')}/nutrition?${qs.toString()}`;
+	const json = await getJson(url, { method: 'GET' });
+	if (!json.ok) throw new Error(json.error || 'nutrition not found');
+	return json.data;
 }
 
-// finds the nutrition values for a set of items, more realistic for our project
-export async function calculateMealNutrition(mealItems, useMock = false) {
-  const results = [];
-  const warnings = [];
-
-  for (const item of mealItems) {
-    const nutrition = await calculateNutrition(item.food, item.amount, item.unit, useMock);
-    results.push(nutrition);
-  }
-
-  // calculates and returns total nutritional information for all the items combined
-  const totals = results.reduce((acc, item) => {
-    acc.calories += Number(item.calories);
-    acc.protein += Number(item.protein);
-    acc.carbs += Number(item.carbs);
-    acc.fat += Number(item.fat);
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-
-  return { items: results, totals, warnings };
+export async function calculateMealNutrition(mealItems, restrictedAllergens = [], useMock = false, baseUrl) {
+	// Call calculateNutrition for each item concurrently via the API.
+	const promises = mealItems.map(i => calculateNutrition(i.food, i.amount, i.unit || 'g', useMock, baseUrl).catch(err => null));
+	const results = await Promise.all(promises);
+	const filtered = results.filter(Boolean);
+	const totals = filtered.reduce((acc, item) => {
+		acc.calories += Number(item.calories || 0);
+		acc.protein += Number(item.protein || 0);
+		acc.carbs += Number(item.carbs || 0);
+		acc.fat += Number(item.fat || 0);
+		return acc;
+	}, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+	const warnings = [];
+	// Simple allergen check
+	if (restrictedAllergens.length) {
+		for (const it of filtered) {
+			const found = (it.allergens || []).map(a => a.toLowerCase()).filter(a => restrictedAllergens.includes(a));
+			if (found.length) warnings.push(`WARNING: ${it.food} contains: ${found.join(', ')}`);
+		}
+	}
+	return { items: filtered, totals, warnings };
 }
+
+export async function saveMealToDatabase(mealItems, totals, baseUrl) {
+	const base = resolveBase(baseUrl);
+	const url = `${base.replace(/\/$/, '')}/meal`;
+	const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: mealItems, totals }) });
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'save failed');
+	return json;
+}
+
+export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase };
