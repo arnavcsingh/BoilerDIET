@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
@@ -14,6 +15,7 @@ interface NutritionResult {
 }
 
 export default function ManualLogging() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
     const [value, setValue] = useState(null);
     const [quantity, setQuantity] = useState('');
@@ -27,6 +29,9 @@ export default function ManualLogging() {
     ]);
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>Manual Logging Page</Text>
 
       <DropDownPicker
@@ -85,10 +90,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#CEB888',
   },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    padding: 10,
+    zIndex: 10,
+  },
+  backButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     margin: 50,
+    marginTop: 100,
   },
     hallPicker: {
     marginBottom: 50,

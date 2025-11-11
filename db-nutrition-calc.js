@@ -1,15 +1,16 @@
 import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
-dotenv.config();
+import fetch from 'node-fetch';
 
 // Mock fallback database for testing without API
 // includes food names, calories, nutrition facts based on one serving size
 const mockDatabase = {
   "scrambled eggs": { calories: 150, protein: 12, carbs: 1, fat: 11 , allergens: ["eggs"]},
   "pancakes": { calories: 220, protein: 5, carbs: 28, fat: 9, allergens: ["gluten", "milk", "eggs"] },
-  "rice": { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, allergens: [""] },
+  "rice": { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, allergens: [] },
   "grilled cheese": { calories: 340, protein: 10, carbs: 32, fat: 19, allergens: ["gluten", "milk"] },
   "pork potstickers": { calories: 53, protein: 2, carbs: 8, fat: 1.5, allergens: ["pork", "soy", "gluten"] }, 
+
+  // more items in actual API database
 };
 
 // Converts commonly used units for measurements to grams
@@ -24,107 +25,61 @@ function convertToGrams(amount, unit) {
     tbsp: 15,
     tsp: 5
   };
-  return amount * (conversions[(unit || '').toLowerCase()] || 1);
+  // converts the amount to g with the lowercase formatted unit, in case user uses uppercase
+  return amount * (conversions[unit.toLowerCase()] || 1);
 }
 
-// DB configuration from environment (.env)
+// sets up the formatting of the data to be fetched from the DB
 const configureDB = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'diningDB',
-  waitForConnections: true,
-  connectionLimit: 5
+  host: 'localhost',
+  user: 'your_user',
+  password: 'MySR00tP@s$!',
+  database: "dummydb"
 };
 
 
 // Fetch nutrition facts from our DB
 async function fetchFromDB(foodName, grams) {
   const connection = await mysql.createConnection(configureDB);
-  try {
-    // Try to find an exact match (case-insensitive) on the Name column
-    const sql = `SELECT * FROM foods WHERE LOWER(Name) = LOWER(?) LIMIT 1`;
-    const [rows] = await connection.execute(sql, [foodName]);
+  // fetches the information stores in the DB in the way its configures
+  const [rows] = await connection.execute(
+    [foodName]
+  );
+  
+  await connection.end();
 
-    if (!rows || rows.length === 0) return null;
+  if (!rows.length) return null;
 
-    const entry = rows[0];
-    // Normalize column names (some dumps use different casing)
-    const rawCalories = entry.calories ?? entry.Calories ?? entry.Calorie ?? null;
-    const rawProtein = entry.protein ?? entry.Protein ?? null;
-    const rawCarbs = entry.carbs ?? entry.totalCarbohydrate ?? entry.totalcarbohydrate ?? null;
-    const rawFat = entry.fat ?? entry.totalFat ?? entry.totalfat ?? null;
-    let rawAllergens = entry.allergens ?? entry.Traits ?? null;
-
-    // Normalize allergens into a real array. Handle JSON strings, comma lists, or single values.
-    let allergensArr = [];
-    if (Array.isArray(rawAllergens)) {
-      allergensArr = rawAllergens;
-    } else if (typeof rawAllergens === 'string') {
-      const s = rawAllergens.trim();
-      if (s.length === 0) {
-        allergensArr = [];
-      } else {
-        try {
-          const parsed = JSON.parse(s);
-          if (Array.isArray(parsed)) allergensArr = parsed;
-          else if (typeof parsed === 'string') allergensArr = [parsed];
-          else allergensArr = [];
-        } catch (e) {
-          // Not JSON — try comma-separated
-          allergensArr = s.split(',').map(a => a.trim()).filter(Boolean);
-        }
-      }
-    } else {
-      allergensArr = [];
-    }
-
-    const scale = grams / 100;
-    const toNumber = v => (v == null ? null : Number(v));
-    const calNum = toNumber(rawCalories);
-    const protNum = toNumber(rawProtein);
-    const carbNum = toNumber(rawCarbs);
-    const fatNum = toNumber(rawFat);
-
-    const scaledCalories = calNum != null ? Math.round(calNum * scale) : null;
-    const scaledProtein = protNum != null ? Math.round(protNum * scale * 10) / 10 : null;
-    const scaledCarbs = carbNum != null ? Math.round(carbNum * scale * 10) / 10 : null;
-    const scaledFat = fatNum != null ? Math.round(fatNum * scale * 10) / 10 : null;
-
-    return {
-      food: entry.Name || entry.name,
-      serving: `${grams}g`,
-      calories: scaledCalories,
-      protein: scaledProtein,
-      carbs: scaledCarbs,
-      fat: scaledFat,
-      allergens: allergensArr
-    };
-  } finally {
-    await connection.end();
-  }
+  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
+  const entry = rows[0]
+  const scale = grams / 100; 
+  return {
+    food: entry.Name,
+    serving: `${grams}g`,
+    calories: (entry.calories * scale).toFixed(0),
+    protein: (entry.protein * scale).toFixed(1),
+    carbs: (entry.carbs * scale).toFixed(1),
+    fat: (entry.fat * scale).toFixed(1),
+    allergens: entry.allergens || []
+  };
 }
 
-// Fetches nutrition info from mock database
+// Fetches nutirtion info from mock database if it cant access the API
 function fetchFromMock(foodName, grams) {
   const entry = mockDatabase[foodName.toLowerCase()];
+  // returns null if food item doesnt exist in food database
   if (!entry) return null;
 
-  const scale = grams / 100;
-  const cal = entry.calories != null ? Math.round(entry.calories * scale) : null;
-  const prot = entry.protein != null ? Math.round(entry.protein * scale * 10) / 10 : null;
-  const carbs = entry.carbs != null ? Math.round(entry.carbs * scale * 10) / 10 : null;
-  const fat = entry.fat != null ? Math.round(entry.fat * scale * 10) / 10 : null;
-  const allergens = Array.isArray(entry.allergens) ? entry.allergens : (typeof entry.allergens === 'string' ? entry.allergens.split(',').map(a=>a.trim()).filter(Boolean) : []);
-
+  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
+  const scale = grams / 100; 
   return {
     food: foodName,
     serving: `${grams}g`,
-    calories: cal,
-    protein: prot,
-    carbs: carbs,
-    fat: fat,
-    allergens: allergens
+    calories: (entry.calories * scale).toFixed(0),
+    protein: (entry.protein * scale).toFixed(1),
+    carbs: (entry.carbs * scale).toFixed(1),
+    fat: (entry.fat * scale).toFixed(1),
+    allergens: entry.allergens || []
   };
 }
 
@@ -155,6 +110,16 @@ function checkAllergens(item, restrictedAllergens) {
     return `WARNING: ${item.food} contains: ${found.join(", ")}`;
   }
   return null;
+}
+
+function getDietGoals(mode) {
+  const modes = {
+    balanced:  { calories: 2000, protein: 50, carbs: 275, fat: 70 },
+    highprotein: { calories: 2200, protein: 120, carbs: 200, fat: 70 },
+    lowcarb: { calories: 1800, protein: 80, carbs: 100, fat: 75 },
+    lowfat: { calories: 1800, protein: 70, carbs: 250, fat: 40 }
+  };
+  return modes[mode] || null;
 }
 
 // function to help users work towards their dietary goals of the day (week later on), showing progress with each meal
@@ -212,36 +177,9 @@ async function saveMealToDatabase(mealItems, totals) {
     const connection = await mysql.createConnection(configureDB);
     const timestamp = new Date().toISOString();
 
-    // Ensure minimal tables exist: Meals and MealItems
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS Meals (
-        Id INT AUTO_INCREMENT PRIMARY KEY,
-        CreatedAt DATETIME NOT NULL,
-        Calories FLOAT,
-        Protein FLOAT,
-        Carbs FLOAT,
-        Fat FLOAT
-      ) ENGINE=InnoDB;
-    `);
-
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS MealItems (
-        Id INT AUTO_INCREMENT PRIMARY KEY,
-        MealId INT NOT NULL,
-        Name VARCHAR(255),
-        Amount FLOAT,
-        Unit VARCHAR(50),
-        Calories FLOAT,
-        Protein FLOAT,
-        Carbs FLOAT,
-        Fat FLOAT,
-        FOREIGN KEY (MealId) REFERENCES Meals(Id) ON DELETE CASCADE
-      ) ENGINE=InnoDB;
-    `);
-
-    // Insert meal summary
+    // Insert a new meal summary record
     const [mealResult] = await connection.execute(
-      `INSERT INTO Meals (CreatedAt, Calories, Protein, Carbs, Fat) VALUES (?, ?, ?, ?, ?)`,
+      //INSERT INTO meals (date, calories, protein, carbs, fat) values
       [timestamp, totals.calories, totals.protein, totals.carbs, totals.fat]
     );
     const mealId = mealResult.insertId;
@@ -249,11 +187,20 @@ async function saveMealToDatabase(mealItems, totals) {
     // Insert each item linked to the meal
     for (const item of mealItems) {
       await connection.execute(
-        `INSERT INTO MealItems (MealId, Name, Amount, Unit, Calories, Protein, Carbs, Fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [mealId, item.food, item.amount, item.unit, item.calories, item.protein, item.carbs, item.fat]
+        [
+          mealId,
+          item.food,
+          item.amount,
+          item.unit,
+          item.calories,
+          item.protein,
+          item.carbs,
+          item.fat
+        ]
       );
     }
 
+    // send confirmation or error message to the user
     await connection.end();
     console.log(`Meal saved successfully with ID: ${mealId}`);
   } catch (error) {
@@ -281,6 +228,37 @@ function calculateHealthScore(totals, userGoals) {
   return score.toFixed(1);
 }
 
+// calls weekly meals from database if user equests a summary for prorgress tracking
+async function getWeeklySummary() {
+  const connection = await mysql.createConnection(configureDB);
+
+  const [rows] = await connection.execute(`
+    SELECT * FROM meals 
+    WHERE date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+  `);
+
+  await connection.end();
+
+  if (rows.length === 0) return "No meals logged this week.";
+
+  const weeklyTotals = rows.reduce((acc, meal) => {
+    acc.calories += meal.calories;
+    acc.protein += meal.protein;
+    acc.carbs += meal.carbs;
+    acc.fat += meal.fat;
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  const avg = {
+    calories: (weeklyTotals.calories / 7).toFixed(1),
+    protein: (weeklyTotals.protein / 7).toFixed(1),
+    carbs: (weeklyTotals.carbs / 7).toFixed(1),
+    fat: (weeklyTotals.fat / 7).toFixed(1)
+  };
+
+  return { weeklyTotals, avg };
+}
+
 // prompts the user to input the food, amount, and unit (will be changed when implemented into our app to automatically receive the info from the CNNs)
 async function main() {
   const promptModule = await import('prompt-sync');
@@ -293,13 +271,33 @@ async function main() {
   const restructedInput = prompt("Enter allergen restrictions: ");
   const restrictedAllergens = restructedInput.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
   
+  console.log("\nChoose a diet mode:");
+  console.log("1) Balanced");
+  console.log("2) High Protein");
+  console.log("3) Low Carb");
+  console.log("4) Low Fat");
+  console.log("5) Custom");
+
+  // allows user to choose meal goal presets based on surrent possible diet plans
+  const dietChoice = prompt("Select mode (1–5): ");
+  let userGoals;
+
   // user input of nutritional goals for each type
-  console.log("\nSet your daily nutrition goals (press Enter to use defaults).");
-  const userGoals = {
-    calories: Number(prompt("Daily calorie goal (default 2000): ")) || 2000,
-    protein: Number(prompt("Daily protein goal (default 50g): ")) || 50,
-    carbs: Number(prompt("Daily carbs goal (default 275g): ")) || 275,
-    fat: Number(prompt("Daily fat goal (default 70g): ")) || 70
+  if (dietChoice !== "5") {
+    // uses preset values if user selects a diet type
+    const modes = ["balanced", "highprotein", "lowcarb", "lowfat"];
+    userGoals = getDietGoals(modes[dietChoice - 1]);
+    console.log("\nLoaded diet mode goals:", userGoals);
+  } 
+  else {
+    // otherwise uses inputs from user
+    console.log("\nSet your daily nutrition goals (press Enter to use defaults).");
+    const userGoals = {
+      calories: Number(prompt("Daily calorie goal (default 2000): ")) || 2000,
+      protein: Number(prompt("Daily protein goal (default 50g): ")) || 50,
+      carbs: Number(prompt("Daily carbs goal (default 275g): ")) || 275,
+      fat: Number(prompt("Daily fat goal (default 70g): ")) || 70
+    }
   };
 
   const mealItems = [];
@@ -367,12 +365,13 @@ async function main() {
   const healthScore = calculateHealthScore(totals, userGoals);
   console.log(`\nHealth Score: ${healthScore}/100`);
 
+  // gets weekly total from stored info in databse should user choose to
+  const wantWeekly = prompt("\nWould you like to view weekly summary? (y/n): ");
+  if (wantWeekly.toLowerCase() === "y") {
+    const weekly = await getWeeklySummary();
+    console.log("\nWeekly Summary:");
+    console.log(weekly);
+  }
 }
 
-// Only run interactive main when executed directly, not when imported for tests
-if (process.argv[1] && process.argv[1].toLowerCase().endsWith('db-nutrition-calc.js')) {
-  main();
-}
-
-// Export useful functions for programmatic use / testing
-export { calculateMealNutrition, saveMealToDatabase, calculateNutrition };
+main();
