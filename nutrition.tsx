@@ -1,10 +1,11 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
 
 export default function Nutrition() {
+  const router = useRouter();
   const today = new Date()
   const year = today.getFullYear()
   const month = String(today.getMonth() + 1).padStart(2, '0')
@@ -23,7 +24,10 @@ export default function Nutrition() {
     let barRadius = 6
     return (
     <View style={styles.container}>
-      <Text style={styles.titleText}>Nutrition Tracker</Text>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+      <Text style={styles.titleText}>Nutrition</Text>
       <Calendar onSelectDate={setSelectedDate} selected={selectedDate} />
       
       <View style={styles.nutrients}>
@@ -70,6 +74,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#CEB888',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    padding: 10,
+    zIndex: 10,
+  },
+  backButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
   },
   titleText: {
     marginTop: 100,
