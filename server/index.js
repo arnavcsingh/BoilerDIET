@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import mysql from 'mysql2/promise';
 import { calculateNutrition, calculateMealNutrition, saveMealToDatabase } from '../db-nutrition-calc.js';
 
 const app = express();
@@ -38,3 +39,73 @@ app.post('/meal', async (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Nutrition API listening on port ${port}`));
+
+// DB helper for menu endpoints (reuse same env-based config as db-nutrition-calc)
+const configureDB = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'diningDB',
+  waitForConnections: true,
+  connectionLimit: 5
+};
+
+// List known dining courts from diningcourthistory
+app.get('/diningcourts', async (req, res) => {
+  try {
+    const conn = await mysql.createConnection(configureDB);
+    const [rows] = await conn.execute(`SELECT DISTINCT DiningCourt FROM diningcourthistory ORDER BY DiningCourt`);
+    await conn.end();
+    const courts = rows.map(r => (r.DiningCourt || r.diningCourt || r.diningcourt));
+    return res.json({ ok: true, courts });
+  } catch (err) {
+    console.error('GET /diningcourts error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Get menu items for a dining court and optionally filter by meal type
+app.get('/menu', async (req, res) => {
+  try {
+    const { court, mealType } = req.query;
+    if (!court) return res.status(400).json({ ok: false, error: 'court query required' });
+    
+    const conn = await mysql.createConnection(configureDB);
+    // Use lowercase column names matching actual DB schema (itemId, name, servingSize)
+    let sql = `SELECT DISTINCT f.name, f.servingSize FROM diningcourthistory dch
+               JOIN foods f ON dch.ItemId = f.itemId
+               WHERE dch.DiningCourt = ?`;
+    const params = [court];
+    
+    // Filter by meal type if provided
+    if (mealType) {
+      sql += ` AND dch.MealType = ?`;
+      params.push(mealType);
+    }
+    
+    sql += ` ORDER BY f.name LIMIT 1000`;
+    const [rows] = await conn.execute(sql, params);
+    await conn.end();
+    
+    const items = rows.map(r => ({ 
+      label: r.name, 
+      value: r.name,
+      servingSize: r.servingSize || '100g'
+    }));
+    return res.json({ ok: true, items });
+  } catch (err) {
+    console.error('GET /menu error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Get available meal types
+app.get('/mealtypes', async (req, res) => {
+  try {
+    const mealTypes = ['Breakfast', 'Brunch', 'Lunch', 'Late Lunch', 'Dinner'];
+    return res.json({ ok: true, mealTypes });
+  } catch (err) {
+    console.error('GET /mealtypes error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});

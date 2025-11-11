@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
-import { calculateNutrition } from './components/db-nutrition-calc';
+import { calculateNutrition, saveMealToDatabase } from './components/db-nutrition-calc';
 
 interface NutritionResult {
   food: string;
@@ -14,39 +14,188 @@ interface NutritionResult {
 }
 
 export default function ManualLogging() {
-  const [open, setOpen] = useState(false);
-    const [value, setValue] = useState(null);
-    const [quantity, setQuantity] = useState('');
-    const [nutritionResult, setNutritionResult] = useState<NutritionResult | null>(null);
-    const [items, setItems] = useState([
-      { label: 'scrambled eggs', value: '1' },
-      { label: 'pancakes', value: '2' },
-      { label: 'rice', value: '3' },
-      { label: 'grilled cheese', value: '4' },
-      { label: 'pork potstickers', value: '5' },
-    ]);
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Manual Logging Page</Text>
+  const [openCourt, setOpenCourt] = useState(false);
+  const [openMealType, setOpenMealType] = useState(false);
+  const [openItem, setOpenItem] = useState(false);
+  const [itemValue, setItemValue] = useState<string | null>(null);
+  const [servingSize, setServingSize] = useState('1 serving');
+  const [quantity, setQuantity] = useState('1');
+  const [nutritionResult, setNutritionResult] = useState<NutritionResult | null>(null);
+  const [items, setItems] = useState<{ label: string; value: string; servingSize?: string }[]>([]);
+  const [courts, setCourts] = useState<{ label: string; value: string }[]>([]);
+  const [mealTypes, setMealTypes] = useState<{ label: string; value: string }[]>([]);
+  const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState<string | null>(null);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [loadingCourts, setLoadingCourts] = useState(false);
 
-      <DropDownPicker
-      open={open}
-      value={value}
-      items={items}
-      setOpen={setOpen}
-      setValue={setValue}
-      setItems={setItems}
-      style={styles.hallPicker}
-    />
+      // Fetch dining courts and meal types on mount
+      useEffect(() => {
+        let mounted = true;
+        (async () => {
+          try {
+            setLoadingCourts(true);
+            const base = (global as any)?.NUTRITION_API_BASE || 'http://10.0.2.2:3000';
+            const cleanBase = base.replace(/\/$/, '');
+            
+            // Fetch courts
+            const courtsRes = await fetch(`${cleanBase}/diningcourts`);
+            const courtsJson = await courtsRes.json();
+            if (mounted && courtsJson.ok) {
+              const list = courtsJson.courts.map((c:string) => ({ label: c, value: c }));
+              setCourts(list);
+            }
+            
+            // Fetch meal types
+            const typesRes = await fetch(`${cleanBase}/mealtypes`);
+            const typesJson = await typesRes.json();
+            if (mounted && typesJson.ok) {
+              const typesList = typesJson.mealTypes.map((t:string) => ({ label: t, value: t }));
+              setMealTypes(typesList);
+            }
+          } catch (e) {
+            console.warn('Failed to load dining courts or meal types', e);
+          } finally {
+            setLoadingCourts(false);
+          }
+        })();
+        return () => { mounted = false; };
+      }, []);
+
+      // When a dining court or meal type is selected, fetch its menu items
+      useEffect(() => {
+        let mounted = true;
+        (async () => {
+          if (!selectedCourt) return setItems([]);
+          try {
+            setLoadingItems(true);
+            const base = (global as any)?.NUTRITION_API_BASE || 'http://10.0.2.2:3000';
+            const cleanBase = base.replace(/\/$/, '');
+            let url = `${cleanBase}/menu?court=${encodeURIComponent(selectedCourt)}`;
+            if (selectedMealType) {
+              url += `&mealType=${encodeURIComponent(selectedMealType)}`;
+            }
+            const res = await fetch(url);
+            const json = await res.json();
+            if (!mounted) return;
+            if (json.ok) {
+              setItems(json.items);
+            } else {
+              setItems([]);
+            }
+          } catch (e) {
+            console.warn('Failed to load menu items', e);
+            setItems([]);
+          } finally {
+            setLoadingItems(false);
+          }
+        })();
+        return () => { mounted = false; };
+      }, [selectedCourt, selectedMealType]);
+  return (
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <View style={styles.innerContainer}>
+        <Text style={styles.title}>Manual Logging Page</Text>
+
+        <View style={[styles.dropdownContainer, { zIndex: 3000 }]}>
+          <Text style={{marginBottom:8}}>Dining Court</Text>
+          <DropDownPicker
+            open={openCourt}
+            value={selectedCourt}
+            items={courts}
+            setOpen={(open) => {
+              setOpenCourt(open);
+              if (open) {
+                setOpenMealType(false);
+                setOpenItem(false);
+              }
+            }}
+            setValue={(v:any) => {
+              const resolved = typeof v === 'function' ? (v as Function)(selectedCourt) : v;
+              setSelectedCourt(resolved as string);
+              setItemValue(null);
+            }}
+            setItems={setCourts}
+            placeholder={loadingCourts ? 'Loading courts...' : 'Select dining court'}
+            style={styles.hallPicker}
+            dropDownContainerStyle={styles.dropDownContainer}
+            zIndex={3000}
+            zIndexInverse={1000}
+          />
+        </View>
+
+        <View style={[styles.dropdownContainer, { zIndex: 2000 }]}>
+          <Text style={{marginTop:16, marginBottom:8}}>Meal Type</Text>
+          <DropDownPicker
+            open={openMealType}
+            value={selectedMealType}
+            items={mealTypes}
+            setOpen={(open) => {
+              setOpenMealType(open);
+              if (open) {
+                setOpenCourt(false);
+                setOpenItem(false);
+              }
+            }}
+            setValue={(v:any) => {
+              const resolved = typeof v === 'function' ? (v as Function)(selectedMealType) : v;
+              setSelectedMealType(resolved as string);
+              setItemValue(null);
+            }}
+            setItems={setMealTypes}
+            placeholder="Select meal type (optional)"
+            style={styles.hallPicker}
+            dropDownContainerStyle={styles.dropDownContainer}
+            zIndex={2000}
+            zIndexInverse={2000}
+          />
+        </View>
+
+        <View style={[styles.dropdownContainer, { zIndex: 1000 }]}>
+          <Text style={{marginTop:16, marginBottom:8}}>Select an item</Text>
+          <DropDownPicker
+            open={openItem}
+            value={itemValue}
+            items={items}
+            setOpen={(open) => {
+              setOpenItem(open);
+              if (open) {
+                setOpenCourt(false);
+                setOpenMealType(false);
+              }
+            }}
+            setValue={setItemValue}
+            setItems={setItems}
+            onSelectItem={(item) => {
+              if (item && item.servingSize) {
+                setServingSize(item.servingSize);
+              }
+            }}
+            placeholder={loadingItems ? 'Loading items...' : 'Select item'}
+            style={styles.hallPicker}
+            dropDownContainerStyle={[styles.dropDownContainer, { maxHeight: 250 }]}
+            listMode="FLATLIST"
+            flatListProps={{
+              nestedScrollEnabled: true,
+            }}
+            searchable={true}
+            searchPlaceholder="Search items..."
+            zIndex={1000}
+            zIndexInverse={3000}
+          />
+        </View>
 
     <View style={styles.quantityContainer}>
-      <Text style={styles.quantityLabel}>Quantity:</Text>
+      <Text style={styles.quantityLabel}>Servings ({servingSize}):</Text>
       <TextInput
         style={styles.quantityInput}
         value={quantity}
         onChangeText={setQuantity}
         keyboardType="numeric"
-        placeholder="Enter Grams"
+        placeholder="1"
         placeholderTextColor="#666"
       />
     </View>
@@ -54,16 +203,38 @@ export default function ManualLogging() {
     <TouchableOpacity
       style={styles.submitButton}
       onPress={async () => {
-        if (value && quantity) {
-          const selectedFood = items.find(item => item.value === value)?.label;
-          if (selectedFood) {
-            const result = await calculateNutrition(selectedFood, parseInt(quantity), "g", true);
-            setNutritionResult(result);
+        if (itemValue && quantity) {
+          try {
+            const selectedFood = itemValue;
+            // Parse serving size to extract grams (e.g., "100g" -> 100)
+            const servingMatch = servingSize.match(/(\d+\.?\d*)\s*g/i);
+            const gramsPerServing = servingMatch ? parseFloat(servingMatch[1]) : 100;
+            const totalGrams = gramsPerServing * parseFloat(quantity);
+            
+            const result = await calculateNutrition(selectedFood, totalGrams, "g", false);
+            setNutritionResult(result as NutritionResult);
+          } catch (err:any) {
+            Alert.alert('Error', err.message || 'Failed to fetch nutrition');
           }
         }
       }}
     >
       <Text style={styles.submitButtonText}>Calculate Nutrition</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      style={[styles.submitButton, {marginTop:10}]}
+      onPress={async () => {
+  if (!nutritionResult) { Alert.alert('No data', 'Calculate nutrition first'); return; }
+        try {
+          const itemsToSave = [{ food: nutritionResult.food, amount: Number(quantity), unit: 'g', calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) }];
+          const totals = { calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) };
+          await saveMealToDatabase(itemsToSave, totals);
+          Alert.alert('Saved', 'Meal saved to database');
+        } catch (err:any) { Alert.alert('Save failed', err.message || ''); }
+      }}
+    >
+      <Text style={styles.submitButtonText}>Save Meal</Text>
     </TouchableOpacity>
 
     {nutritionResult && (
@@ -76,24 +247,36 @@ export default function ManualLogging() {
       </View>
     )}
 
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#CEB888',
+  },
+  innerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#CEB888',
+    paddingVertical: 20,
+  },
+  dropdownContainer: {
+    marginBottom: 20,
+    width: 300,
+  },
+  dropDownContainer: {
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     margin: 50,
   },
-    hallPicker: {
-    marginBottom: 50,
-    marginRight: 50,
-    marginLeft: 50,
+  hallPicker: {
+    marginBottom: 10,
     width: 300,
   },
   quantityContainer: {
