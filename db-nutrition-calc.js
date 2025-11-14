@@ -1,5 +1,7 @@
 import mysql from 'mysql2/promise';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Mock fallback database for testing without API
 // includes food names, calories, nutrition facts based on one serving size
@@ -29,38 +31,49 @@ function convertToGrams(amount, unit) {
   return amount * (conversions[unit.toLowerCase()] || 1);
 }
 
-// sets up the formatting of the data to be fetched from the DB
+// DB connection configuration (use environment variables when available)
 const configureDB = {
-  host: 'localhost',
-  user: 'your_user',
-  password: 'MySR00tP@s$!',
-  database: "dummydb"
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'diningDB'
 };
 
 
 // Fetch nutrition facts from our DB
 async function fetchFromDB(foodName, grams) {
   const connection = await mysql.createConnection(configureDB);
-  // fetches the information stores in the DB in the way its configures
+  // Fetch nutrition from foods table by name (case-insensitive)
   const [rows] = await connection.execute(
+    `SELECT 
+       Name AS name,
+       servingSize,
+       Calories AS calories,
+       Protein AS protein,
+       totalCarbohydrate AS carbs,
+       totalFat AS fat,
+       Traits AS traits
+     FROM foods
+     WHERE LOWER(Name) = LOWER(?)
+     LIMIT 1`,
     [foodName]
   );
-  
+
   await connection.end();
 
   if (!rows.length) return null;
 
-  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
-  const entry = rows[0]
-  const scale = grams / 100; 
+  // Assume base values are per 100g unless serving size specifies grams; scale linearly by grams
+  const entry = rows[0];
+  const scale = grams / 100;
   return {
-    food: entry.Name,
+    food: entry.name,
     serving: `${grams}g`,
-    calories: (entry.calories * scale).toFixed(0),
-    protein: (entry.protein * scale).toFixed(1),
-    carbs: (entry.carbs * scale).toFixed(1),
-    fat: (entry.fat * scale).toFixed(1),
-    allergens: entry.allergens || []
+    calories: (Number(entry.calories || 0) * scale).toFixed(0),
+    protein: (Number(entry.protein || 0) * scale).toFixed(1),
+    carbs: (Number(entry.carbs || 0) * scale).toFixed(1),
+    fat: (Number(entry.fat || 0) * scale).toFixed(1),
+    allergens: entry.traits ? String(entry.traits).split(',').map(s => s.trim()) : []
   };
 }
 
@@ -175,11 +188,12 @@ async function calculateMealNutrition(mealItems, restrictedAllergens, useMock = 
 async function saveMealToDatabase(mealItems, totals) {
   try {
     const connection = await mysql.createConnection(configureDB);
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date();
 
     // Insert a new meal summary record
     const [mealResult] = await connection.execute(
-      //INSERT INTO meals (date, calories, protein, carbs, fat) values
+      `INSERT INTO meals (CreatedAt, Calories, Protein, Carbs, Fat)
+       VALUES (?, ?, ?, ?, ?)`,
       [timestamp, totals.calories, totals.protein, totals.carbs, totals.fat]
     );
     const mealId = mealResult.insertId;
@@ -187,6 +201,8 @@ async function saveMealToDatabase(mealItems, totals) {
     // Insert each item linked to the meal
     for (const item of mealItems) {
       await connection.execute(
+        `INSERT INTO mealitems (MealId, Name, Amount, Unit, Calories, Protein, Carbs, Fat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           mealId,
           item.food,

@@ -105,7 +105,17 @@ export default function ManualLogging() {
             const json = await res.json();
             if (!mounted) return;
             if (json.ok) {
-              setItems(json.items);
+              // Deduplicate by label to avoid duplicate keys (e.g., Broccoli Florets appearing multiple times)
+              const seen = new Set<string>();
+              const deduped = (json.items as {label:string; value:string; servingSize?:string}[])
+                .filter((it) => {
+                  const key = it.label?.trim().toLowerCase();
+                  if (!key) return false;
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+              setItems(deduped);
             } else {
               setItems([]);
             }
