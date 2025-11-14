@@ -3,6 +3,32 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvo
 import DropDownPicker from 'react-native-dropdown-picker';
 import { calculateNutrition, saveMealToDatabase } from './components/db-nutrition-calc';
 
+// Attempt to derive grams from a serving size string.
+// Supports patterns like:
+//  - "100g", "100 g"
+//  - "1 oz (28g)" or "1 oz (28 g)"
+//  - "2 pieces (85 g)"
+//  - "1 cup (240 g)"
+// Falls back to 100.
+function parseServingToGrams(serving:string): number {
+  if (!serving) return 100;
+  // direct grams e.g. 100g or 100 g
+  const direct = serving.match(/(\d+\.?\d*)\s*g/i);
+  if (direct) return parseFloat(direct[1]);
+  // grams inside parentheses e.g. (85 g) or (28g)
+  const paren = serving.match(/\(([^)]*)\)/);
+  if (paren) {
+    const inner = paren[1];
+    const innerMatch = inner.match(/(\d+\.?\d*)\s*g/i);
+    if (innerMatch) return parseFloat(innerMatch[1]);
+  }
+  // ounces: capture number then convert (1 oz ≈ 28.3495g)
+  const oz = serving.match(/(\d+\.?\d*)\s*oz/i);
+  if (oz) return parseFloat(oz[1]) * 28.35;
+  // generic fallback
+  return 100;
+}
+
 interface NutritionResult {
   food: string;
   serving: string;
@@ -169,18 +195,18 @@ export default function ManualLogging() {
             }}
             setValue={setItemValue}
             setItems={setItems}
-            onSelectItem={(item) => {
-              if (item && item.servingSize) {
-                setServingSize(item.servingSize);
+            onSelectItem={(it:any) => {
+              if (it?.servingSize) {
+                setServingSize(it.servingSize);
+                setQuantity('1');
               }
             }}
             placeholder={loadingItems ? 'Loading items...' : 'Select item'}
             style={styles.hallPicker}
-            dropDownContainerStyle={[styles.dropDownContainer, { maxHeight: 250 }]}
-            listMode="FLATLIST"
-            flatListProps={{
-              nestedScrollEnabled: true,
-            }}
+            dropDownContainerStyle={[styles.dropDownContainer, { maxHeight: 350 }]}
+            listMode="MODAL"
+            modalTitle="Select an item"
+            modalProps={{ presentationStyle: 'fullScreen' }}
             searchable={true}
             searchPlaceholder="Search items..."
             zIndex={1000}
@@ -207,8 +233,7 @@ export default function ManualLogging() {
           try {
             const selectedFood = itemValue;
             // Parse serving size to extract grams (e.g., "100g" -> 100)
-            const servingMatch = servingSize.match(/(\d+\.?\d*)\s*g/i);
-            const gramsPerServing = servingMatch ? parseFloat(servingMatch[1]) : 100;
+            const gramsPerServing = parseServingToGrams(servingSize);
             const totalGrams = gramsPerServing * parseFloat(quantity);
             
             const result = await calculateNutrition(selectedFood, totalGrams, "g", false);

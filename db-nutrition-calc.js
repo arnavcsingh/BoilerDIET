@@ -259,6 +259,9 @@ async function getWeeklySummary() {
   return { weeklyTotals, avg };
 }
 
+// Export functions for use in server
+export { calculateNutrition, calculateMealNutrition, saveMealToDatabase };
+
 // prompts the user to input the food, amount, and unit (will be changed when implemented into our app to automatically receive the info from the CNNs)
 async function main() {
   const promptModule = await import('prompt-sync');
@@ -374,4 +377,5 @@ async function main() {
   }
 }
 
-main();
+// Commented out to allow importing without running CLI
+// main();

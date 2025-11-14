@@ -1,8 +1,9 @@
+import dotenv from "dotenv";
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
 import { calculateNutrition, calculateMealNutrition, saveMealToDatabase } from '../db-nutrition-calc.js';
-
+dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -44,7 +45,7 @@ app.listen(port, () => console.log(`Nutrition API listening on port ${port}`));
 const configureDB = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
+  password: process.env.DB_PASSWORD || 'MySR00tP@s$!',
   database: process.env.DB_NAME || 'diningDB',
   waitForConnections: true,
   connectionLimit: 5
