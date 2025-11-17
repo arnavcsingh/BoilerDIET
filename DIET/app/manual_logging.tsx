@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { calculateNutrition, saveMealToDatabase } from './components/db-nutrition-calc';
 
@@ -133,7 +133,9 @@ export default function ManualLogging() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.innerContainer}>
+      <ScrollView
+        contentContainerStyle={styles.innerContainer}
+      >
         <Text style={styles.title}>Manual Logging Page</Text>
 
         <View style={[styles.dropdownContainer, { zIndex: 3000 }]}>
@@ -282,7 +284,7 @@ export default function ManualLogging() {
       </View>
     )}
 
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
