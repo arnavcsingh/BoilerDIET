@@ -44,6 +44,7 @@ export default function ManualLogging() {
   const [openMealType, setOpenMealType] = useState(false);
   const [openItem, setOpenItem] = useState(false);
   const [itemValue, setItemValue] = useState<string | null>(null);
+  const [selectedFoodName, setSelectedFoodName] = useState<string>(''); // Store actual food name
   const [servingSize, setServingSize] = useState('1 serving');
   const [quantity, setQuantity] = useState('1');
   const [nutritionResult, setNutritionResult] = useState<NutritionResult | null>(null);
@@ -105,17 +106,8 @@ export default function ManualLogging() {
             const json = await res.json();
             if (!mounted) return;
             if (json.ok) {
-              // Deduplicate by label to avoid duplicate keys (e.g., Broccoli Florets appearing multiple times)
-              const seen = new Set<string>();
-              const deduped = (json.items as {label:string; value:string; servingSize?:string}[])
-                .filter((it) => {
-                  const key = it.label?.trim().toLowerCase();
-                  if (!key) return false;
-                  if (seen.has(key)) return false;
-                  seen.add(key);
-                  return true;
-                });
-              setItems(deduped);
+              // Backend already deduplicates and adds unique values, just use the items directly
+              setItems(json.items || []);
             } else {
               setItems([]);
             }
@@ -206,6 +198,9 @@ export default function ManualLogging() {
             setValue={setItemValue}
             setItems={setItems}
             onSelectItem={(it:any) => {
+              if (it?.label) {
+                setSelectedFoodName(it.label); // Store the actual food name from label
+              }
               if (it?.servingSize) {
                 setServingSize(it.servingSize);
                 setQuantity('1');
@@ -239,9 +234,10 @@ export default function ManualLogging() {
     <TouchableOpacity
       style={styles.submitButton}
       onPress={async () => {
-        if (itemValue && quantity) {
+        if (itemValue && quantity && selectedFoodName) {
           try {
-            const selectedFood = itemValue;
+            // Use the actual food name stored from the label
+            const selectedFood = selectedFoodName;
             // Parse serving size to extract grams (e.g., "100g" -> 100)
             const gramsPerServing = parseServingToGrams(servingSize);
             const totalGrams = gramsPerServing * parseFloat(quantity);

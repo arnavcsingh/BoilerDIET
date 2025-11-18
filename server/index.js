@@ -14,9 +14,11 @@ app.get('/health', (req, res) => res.json({ ok: true, timestamp: Date.now() }));
 app.get('/nutrition', async (req, res) => {
   try {
     const { food, amount = 100, unit = 'g', mock = 'false' } = req.query;
+    console.log('GET /nutrition - food:', food, 'amount:', amount, 'unit:', unit);
     if (!food) return res.status(400).json({ ok: false, error: 'food query required' });
     const useMock = mock === 'true';
     const data = await calculateNutrition(food, Number(amount), unit, useMock);
+    console.log('Nutrition result:', data ? 'found' : 'NOT FOUND');
     if (!data) return res.status(404).json({ ok: false, error: 'not found' });
     return res.json({ ok: true, data });
   } catch (err) {
@@ -88,11 +90,23 @@ app.get('/menu', async (req, res) => {
     const [rows] = await conn.execute(sql, params);
     await conn.end();
     
-    const items = rows.map(r => ({ 
-      label: r.name, 
-      value: r.name,
-      servingSize: r.servingSize || '100g'
-    }));
+    // Deduplicate by food name (first occurrence only) and create unique values
+    const seen = new Map();
+    const items = [];
+    rows.forEach((r, idx) => {
+      const foodName = r.name;
+      if (!foodName) return;
+      const key = foodName.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.set(key, true);
+        items.push({
+          label: foodName,
+          value: `${foodName}_${idx}`, // Unique value to prevent React duplicate key errors
+          servingSize: r.servingSize || '100g'
+        });
+      }
+    });
+    
     return res.json({ ok: true, items });
   } catch (err) {
     console.error('GET /menu error', err);
