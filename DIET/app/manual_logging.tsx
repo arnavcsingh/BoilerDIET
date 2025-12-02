@@ -125,8 +125,8 @@ export default function ManualLogging() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={styles.innerContainer}
+      <View
+        style={styles.innerContainer}
       >
         <Text style={styles.title}>Manual Logging Page</Text>
 
@@ -280,7 +280,7 @@ export default function ManualLogging() {
       </View>
     )}
 
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
