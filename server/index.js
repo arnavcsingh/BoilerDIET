@@ -14,9 +14,11 @@ app.get('/health', (req, res) => res.json({ ok: true, timestamp: Date.now() }));
 app.get('/nutrition', async (req, res) => {
   try {
     const { food, amount = 100, unit = 'g', mock = 'false' } = req.query;
+    console.log('GET /nutrition - food:', food, 'amount:', amount, 'unit:', unit);
     if (!food) return res.status(400).json({ ok: false, error: 'food query required' });
     const useMock = mock === 'true';
     const data = await calculateNutrition(food, Number(amount), unit, useMock);
+    console.log('Nutrition result:', data ? 'found' : 'NOT FOUND');
     if (!data) return res.status(404).json({ ok: false, error: 'not found' });
     return res.json({ ok: true, data });
   } catch (err) {
@@ -45,7 +47,7 @@ app.listen(port, () => console.log(`Nutrition API listening on port ${port}`));
 const configureDB = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'MySR00tP@s$!',
+  password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'diningDB',
   waitForConnections: true,
   connectionLimit: 5
@@ -54,6 +56,7 @@ const configureDB = {
 // List known dining courts from diningcourthistory
 app.get('/diningcourts', async (req, res) => {
   try {
+    console.log('Connecting to DB with:', { host: configureDB.host, user: configureDB.user, database: configureDB.database, hasPassword: !!configureDB.password });
     const conn = await mysql.createConnection(configureDB);
     const [rows] = await conn.execute(`SELECT DISTINCT DiningCourt FROM diningcourthistory ORDER BY DiningCourt`);
     await conn.end();
@@ -61,7 +64,8 @@ app.get('/diningcourts', async (req, res) => {
     return res.json({ ok: true, courts });
   } catch (err) {
     console.error('GET /diningcourts error', err);
-    return res.status(500).json({ ok: false, error: err.message });
+    // Surface more info for debugging
+    return res.status(500).json({ ok: false, error: err.message, details: { code: err.code, sqlState: err.sqlState } });
   }
 });
 
@@ -88,11 +92,23 @@ app.get('/menu', async (req, res) => {
     const [rows] = await conn.execute(sql, params);
     await conn.end();
     
-    const items = rows.map(r => ({ 
-      label: r.name, 
-      value: r.name,
-      servingSize: r.servingSize || '100g'
-    }));
+    // Deduplicate by food name (first occurrence only) and create unique values
+    const seen = new Map();
+    const items = [];
+    rows.forEach((r, idx) => {
+      const foodName = r.name;
+      if (!foodName) return;
+      const key = foodName.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.set(key, true);
+        items.push({
+          label: foodName,
+          value: `${foodName}_${idx}`, // Unique value to prevent React duplicate key errors
+          servingSize: r.servingSize || '100g'
+        });
+      }
+    });
+    
     return res.json({ ok: true, items });
   } catch (err) {
     console.error('GET /menu error', err);
