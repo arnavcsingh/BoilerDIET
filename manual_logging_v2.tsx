@@ -1,0 +1,174 @@
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import DropDownPicker from 'react-native-dropdown-picker';
+import { calculateNutrition } from './components/db-nutrition-calc';
+
+interface NutritionResult {
+  food: string;
+  serving: string;
+  calories: string;
+  protein: string;
+  carbs: string;
+  fat: string;
+  allergens: string[];
+}
+//changed name to quick entry
+export default function QuickEntry() { 
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(null);
+  const [quantity, setQuantity] = useState('');
+  const [nutritionResult, setNutritionResult] = useState<NutritionResult | null>(null);
+  const [items, setItems] = useState([
+    { label: 'scrambled eggs', value: '1' },
+    { label: 'pancakes', value: '2' },
+    { label: 'rice', value: '3' },
+    { label: 'grilled cheese', value: '4' },
+    { label: 'pork potstickers', value: '5' },
+  ]);
+
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+      
+      <ScrollView //enable scrolling for the container
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <Text style={styles.title}>Quick Entry</Text>
+
+        <DropDownPicker
+          open={open}
+          value={value}
+          items={items}
+          setOpen={setOpen}
+          setValue={setValue}
+          setItems={setItems}
+          style={styles.hallPicker}
+        />
+
+        <View style={styles.quantityContainer}>
+          <Text style={styles.quantityLabel}>Quantity:</Text>
+          <TextInput
+            style={styles.quantityInput}
+            value={quantity}
+            onChangeText={setQuantity}
+            keyboardType="numeric"
+            placeholder="Enter Grams"
+            placeholderTextColor="#666"
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={async () => {
+            if (value && quantity) {
+              const selectedFood = items.find(item => item.value === value)?.label;
+              if (selectedFood) {
+                const result = await calculateNutrition(selectedFood, parseInt(quantity), "g", true);
+                setNutritionResult(result);
+              }
+            }
+          }}
+        >
+          <Text style={styles.submitButtonText}>Calculate Nutrition</Text>
+        </TouchableOpacity>
+
+        {nutritionResult && (
+          <View style={styles.nutritionResult}>
+            <Text style={styles.nutritionText}>Nutrition Information:</Text>
+            <Text>Calories: {nutritionResult.calories}</Text>
+            <Text>Protein: {nutritionResult.protein}g</Text>
+            <Text>Carbs: {nutritionResult.carbs}g</Text>
+            <Text>Fat: {nutritionResult.fat}g</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#CEB888',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingBottom: 50,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    padding: 10,
+    zIndex: 10,
+  },
+  backButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    margin: 50,
+    marginTop: 100,
+  },
+  hallPicker: {
+    marginBottom: 50,
+    marginRight: 50,
+    marginLeft: 50,
+    width: 300,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    width: 300,
+  },
+  quantityLabel: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  quantityInput: {
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 5,
+    width: 120,
+    fontSize: 16,
+  },
+  submitButton: {
+    marginTop: 20,
+    backgroundColor: '#000000',
+    padding: 15,
+    borderRadius: 10,
+    width: 300,
+  },
+  submitButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  nutritionResult: {
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: 300,
+    marginBottom: 50,
+  },
+  nutritionText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+});

@@ -17,6 +17,8 @@ export default function HomeLayout() {
       <Stack.Screen name="meal" />
       <Stack.Screen name="NutritionDetails"/>
       <Stack.Screen name="manual_logging"/>
+      <Stack.Screen name="login"/>
+      <Stack.Screen name="signup"/>
     </Stack>
   );
 }

@@ -30,6 +30,7 @@ export default function HomeScreen() {
     <Link href='/manual_logging' style={styles.nutritionButton}>Manual Logging</Link>
     <Link href='/nutrition' style={styles.nutritionButton}>View History</Link>
     <Link href='/camera' style={styles.cameraButton}>Take Picture</Link>
+    <Link href='/login' style={styles.cameraButton}>Take Picture</Link>
     </View>
   );
 }
