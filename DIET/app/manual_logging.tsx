@@ -125,11 +125,7 @@ export default function ManualLogging() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={styles.innerContainer}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
+      <View style={styles.innerContainer}>
         <Text style={styles.title}>Manual Logging Page</Text>
 
         <View style={[styles.dropdownContainer, { zIndex: 3000 }]}>
