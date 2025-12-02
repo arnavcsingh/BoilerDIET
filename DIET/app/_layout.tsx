@@ -14,10 +14,10 @@ export default function HomeLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="camera" />
       <Stack.Screen name="nutrition" />
-      <Stack.Screen name="meal" />
+      <Stack.Screen name="meal_information" />
       <Stack.Screen name="NutritionDetails"/>
       <Stack.Screen name="manual_logging"/>
-      <Stack.Screen name="login"/>
+      <Stack.Screen name="home"/>
       <Stack.Screen name="signup"/>
     </Stack>
   );
