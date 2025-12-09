@@ -1,22 +1,24 @@
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
+import { fetchUserMeals } from './components/db-nutrition-calc';
 
 export default function Nutrition() {
   const router = useRouter();
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  const todayStr = `${year}-${month}-${day}`
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
   
   //current nutrient intake
-  const [protein, setProtein] = useState(28);
-  const [carbs, setCarbs] = useState(200);
-  const [fat, setFat] = useState(83);
+  const [protein, setProtein] = useState(0);
+  const [carbs, setCarbs] = useState(0);
+  const [fat, setFat] = useState(0);
+  const [meals, setMeals] = useState<any[]>([]);
   //set goals for the nutrients
   const proteinGoal = 60;
   const carbsGoal = 60;
@@ -151,12 +153,28 @@ export default function Nutrition() {
     });
   };
   
-  //demo button for testing, ADD MEAL LOGGING
-  const addNutrient = (type: 'protein' | 'carbs' | 'fat', amount: number) => {
-    if (type === 'protein') setProtein(prev => Math.min(prev + amount, proteinGoal));
-    if (type === 'carbs') setCarbs(prev => Math.min(prev + amount, carbsGoal));
-    if (type === 'fat') setFat(prev => Math.min(prev + amount, fatGoal));
-  };
+  // Load meals for the selected date (defaults to today)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!selectedDate) return;
+      try {
+        const userEmail = 'test@purdue.edu'; // replace with logged-in user's email when available
+        const res = await fetchUserMeals({ userId: userEmail, date: selectedDate });
+        if (!active) return;
+        setMeals(res.meals || []);
+        setProtein(Number(res.totals?.protein || 0));
+        setCarbs(Number(res.totals?.carbs || 0));
+        setFat(Number(res.totals?.fat || 0));
+      } catch (e) {
+        console.warn('Failed to load meals', e);
+        if (!active) return;
+        setMeals([]);
+        setProtein(0); setCarbs(0); setFat(0);
+      }
+    })();
+    return () => { active = false; };
+  }, [selectedDate]);
   
   return (
     <View style={styles.container}>
@@ -247,40 +265,25 @@ export default function Nutrition() {
         />
       </View>
       
-      {/* DEMO BUTTONS - Take out lateer*/}
-      <View style={styles.demoButtons}>
-        <TouchableOpacity
-          style={styles.demoButton}
-          onPress={() => addNutrient('protein', 10)}
-        >
-          <Text style={styles.demoButtonText}>+10 Protein</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.demoButton}
-          onPress={() => addNutrient('carbs', 25)}
-        >
-          <Text style={styles.demoButtonText}>+25 Carbs</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.demoButton}
-          onPress={() => addNutrient('fat', 10)}
-        >
-          <Text style={styles.demoButtonText}>+10 Fat</Text>
-        </TouchableOpacity>
+      {/* Meal list */}
+      <View style={styles.mealList}>
+        <Text style={styles.sectionTitle}>Meals ({meals.length})</Text>
+        {meals.length === 0 && (
+          <Text style={{ color: '#555' }}>No meals for this date.</Text>
+        )}
+        {meals.map((m, idx) => (
+          <View key={m.id ?? idx} style={styles.mealCard}>
+            <Text style={styles.mealCardTitle}>{m.foodName} ({m.mealType || 'meal'})</Text>
+            <Text style={styles.mealCardSub}>{m.diningCourt || 'N/A'} • {m.servingSize || '1 serving'} • {Number(m.volume || 0).toFixed(0)} g</Text>
+            <View style={styles.mealMacros}>
+              <Text>Calories: {Number(m.calories).toFixed(0)}</Text>
+              <Text>Protein: {Number(m.protein).toFixed(1)}g</Text>
+              <Text>Carbs: {Number(m.carbs).toFixed(1)}g</Text>
+              <Text>Fat: {Number(m.fat).toFixed(1)}g</Text>
+            </View>
+          </View>
+        ))}
       </View>
-      
-      <Link href="/meal_information" style={styles.mealButton}>
-        Breakfast
-      </Link>
-      <Link href="/meal_information" style={styles.mealButton}>
-        Lunch
-      </Link>
-      <Link href="/meal_information" style={styles.mealButton}>
-        Dinner
-      </Link>
-      <Link href="/camera" style={styles.pictureButton}>
-        Take Picture
-      </Link>
     </View>
   );
 }
@@ -300,49 +303,24 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#000',
   },
   titleText: {
-    marginTop: 100,
-    fontSize: 40,
+    marginTop: 80,
+    fontSize: 32,
     fontWeight: 'bold',
+    marginBottom: 16,
   },
   nutrients: {
-    marginTop: -30,
-    fontSize: 20,
-    fontWeight: 'bold',
-    backgroundColor: '#ffffffff',
-    padding: 30,
-    borderRadius: 10,
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 12,
   },
-  progressBar:{
-    marginBottom: 5,
+  progressBar: {
+    marginBottom: 8,
   },
-  mealButton:{
-    marginTop:20,
-    padding: 10,
-    backgroundColor: '#ffffffff',
-    fontSize: 30,
-    borderRadius: 25,
-    textAlign: 'left',
-    width: 350,
-    height: 70,
-    textAlignVertical: 'center',
-  },
-  pictureButton:{
-    marginTop:30,
-    padding: 10,
-    backgroundColor: '#000000ff',
-    fontSize: 30,
-    borderRadius: 25,
-    textAlign: 'center',
-    width: 350,
-    marginBottom: 100,
-    color: 'white',
-  },
-  //additonal details for how the notification banner should look
   notificationBanner: {
     position: 'absolute',
     top: 150,
@@ -378,20 +356,32 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  demoButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 20,
+  mealList: {
+    width: '100%',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  mealCard: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 10,
     marginBottom: 10,
   },
-  demoButton: {
-    backgroundColor: '#4ECDC4',
-    padding: 10,
-    borderRadius: 8,
+  mealCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
   },
-  demoButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
+  mealCardSub: {
+    color: '#555',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  mealMacros: {
+    gap: 2,
   },
 });

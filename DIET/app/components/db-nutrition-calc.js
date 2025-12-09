@@ -29,9 +29,10 @@ async function getJson(url, opts) {
 	try { return JSON.parse(text); } catch (_e) { throw new Error(`Invalid JSON from ${url}: ${text}`); }
 }
 
-export async function calculateNutrition(foodName, amount = 100, unit = 'g', useMock = false, baseUrl) {
+export async function calculateNutrition(foodName, amount = 100, unit = 'g', useMock = false, baseUrl, servingLabel = '') {
 	const base = resolveBase(baseUrl);
 	const qs = new URLSearchParams({ food: String(foodName), amount: String(amount), unit, mock: useMock ? 'true' : 'false' });
+	if (servingLabel) qs.set('servingLabel', servingLabel);
 	const url = `${base.replace(/\/$/, '')}/nutrition?${qs.toString()}`;
 	const json = await getJson(url, { method: 'GET' });
 	if (!json.ok) throw new Error(json.error || 'nutrition not found');
@@ -70,4 +71,30 @@ export async function saveMealToDatabase(mealItems, totals, baseUrl) {
 	return json;
 }
 
-export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase };
+export async function saveUserMeal(payload, baseUrl) {
+	const base = resolveBase(baseUrl);
+	const url = `${base.replace(/\/$/, '')}/usermeals`;
+	const res = await fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(payload)
+	});
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'save failed');
+	return json;
+}
+
+export async function fetchUserMeals(query, baseUrl) {
+	const base = resolveBase(baseUrl);
+	const qs = new URLSearchParams();
+	Object.entries(query || {}).forEach(([k, v]) => {
+		if (v !== undefined && v !== null) qs.set(k, String(v));
+	});
+	const url = `${base.replace(/\/$/, '')}/usermeals?${qs.toString()}`;
+	const res = await fetch(url);
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'fetch failed');
+	return json;
+}
+
+export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase, saveUserMeal, fetchUserMeals };

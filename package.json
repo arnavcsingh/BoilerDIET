@@ -14,5 +14,9 @@
   },
   "scripts": {
     "start-api": "node server/index.js"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
   }
 }

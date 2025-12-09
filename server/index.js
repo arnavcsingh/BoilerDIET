@@ -8,16 +8,26 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Helpers
+function parseServingLabelToGrams(servingLabel = '') {
+  if (!servingLabel) return 100;
+  const direct = servingLabel.match(/(\d+\.?\d*)\s*g/i);
+  if (direct) return parseFloat(direct[1]);
+  const oz = servingLabel.match(/(\d+\.?\d*)\s*oz/i);
+  if (oz) return parseFloat(oz[1]) * 28.35;
+  return 100;
+}
+
 app.get('/health', (req, res) => res.json({ ok: true, timestamp: Date.now() }));
 
 // GET /nutrition?food=Rice&amount=100&unit=g
 app.get('/nutrition', async (req, res) => {
   try {
-    const { food, amount = 100, unit = 'g', mock = 'false' } = req.query;
-    console.log('GET /nutrition - food:', food, 'amount:', amount, 'unit:', unit);
+    const { food, amount = 100, unit = 'g', servingLabel = '', mock = 'false' } = req.query;
+    console.log('GET /nutrition - food:', food, 'amount:', amount, 'unit:', unit, 'servingLabel:', servingLabel);
     if (!food) return res.status(400).json({ ok: false, error: 'food query required' });
     const useMock = mock === 'true';
-    const data = await calculateNutrition(food, Number(amount), unit, useMock);
+    const data = await calculateNutrition(food, Number(amount), unit, useMock, servingLabel);
     console.log('Nutrition result:', data ? 'found' : 'NOT FOUND');
     if (!data) return res.status(404).json({ ok: false, error: 'not found' });
     return res.json({ ok: true, data });
@@ -125,6 +135,104 @@ app.get('/mealtypes', async (req, res) => {
     return res.json({ ok: true, mealTypes });
   } catch (err) {
     console.error('GET /mealtypes error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Save a user meal into usermeals table
+app.post('/usermeals', async (req, res) => {
+  try {
+    const { userId, diningCourt = null, mealType = 'lunch', foodName, servings = 1, servingLabel = '' } = req.body || {};
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId required' });
+    if (!foodName) return res.status(400).json({ ok: false, error: 'foodName required' });
+
+    const conn = await mysql.createConnection(configureDB);
+
+    // Resolve itemId by food name
+    const [itemRows] = await conn.execute(
+      'SELECT itemId FROM foods WHERE LOWER(name) = LOWER(?) LIMIT 1',
+      [foodName]
+    );
+    if (!itemRows.length) {
+      await conn.end();
+      return res.status(404).json({ ok: false, error: 'food not found' });
+    }
+    const itemId = itemRows[0].itemId;
+
+    // Convert servings to grams for Volume column
+    const gramsPerServing = parseServingLabelToGrams(servingLabel);
+    const volume = gramsPerServing * Number(servings || 1);
+
+    const today = new Date();
+    const dateOnly = today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    await conn.execute(
+      `INSERT INTO usermeals (UserId, Date, MealType, DiningCourt, ItemId, Volume)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, dateOnly, mealType, diningCourt, itemId, volume]
+    );
+
+    await conn.end();
+    return res.json({ ok: true, volume, itemId });
+  } catch (err) {
+    console.error('POST /usermeals error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Fetch user meals (optionally by date or date range)
+app.get('/usermeals', async (req, res) => {
+  try {
+    const { userId, date, startDate, endDate } = req.query;
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId required' });
+
+    const conn = await mysql.createConnection(configureDB);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const start = startDate || date || today;
+    const end = endDate || date || today;
+
+    const [rows] = await conn.execute(
+      `SELECT um.Id, um.Date, um.MealType, um.DiningCourt, um.Volume,
+              f.name AS foodName, f.servingSize, f.Calories, f.Protein, f.totalCarbohydrate AS carbs, f.totalFat AS fat
+       FROM usermeals um
+       JOIN foods f ON um.ItemId = f.itemId
+       WHERE um.UserId = ? AND um.Date BETWEEN ? AND ?
+       ORDER BY um.Date DESC, um.Id DESC`,
+      [userId, start, end]
+    );
+
+    await conn.end();
+
+    const meals = rows.map(r => {
+      const volume = Number(r.Volume || 0);
+      const scale = volume / 100 || 0;
+      return {
+        id: r.Id,
+        date: r.Date,
+        mealType: r.MealType,
+        diningCourt: r.DiningCourt,
+        foodName: r.foodName,
+        servingSize: r.servingSize,
+        volume,
+        calories: Number(r.Calories || 0) * scale,
+        protein: Number(r.Protein || 0) * scale,
+        carbs: Number(r.carbs || 0) * scale,
+        fat: Number(r.fat || 0) * scale,
+      };
+    });
+
+    const totals = meals.reduce((acc, m) => {
+      acc.calories += m.calories;
+      acc.protein += m.protein;
+      acc.carbs += m.carbs;
+      acc.fat += m.fat;
+      return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+    return res.json({ ok: true, meals, totals });
+  } catch (err) {
+    console.error('GET /usermeals error', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

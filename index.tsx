@@ -1,4 +1,3 @@
-import { Link } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
@@ -27,8 +26,8 @@ export default function HomeScreen() {
       setItems={setItems}
       style={styles.hallPicker}
     />
-    <Link href='/nutrition' style={styles.nutritionButton}>View History</Link>
-    <Link href='/camera' style={styles.cameraButton}>Take Picture</Link>
+    <Text style={styles.nutritionButton}>View History (inactive)</Text>
+    <Text style={styles.cameraButton}>Take Picture (inactive)</Text>
     </View>
   );
 }

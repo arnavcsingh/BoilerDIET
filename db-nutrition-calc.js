@@ -15,8 +15,8 @@ const mockDatabase = {
   // more items in actual API database
 };
 
-// Converts commonly used units for measurements to grams
-function convertToGrams(amount, unit) {
+// Converts units or serving labels to grams. Supports "serving" by parsing the serving label if it contains g/oz.
+function convertToGrams(amount, unit, servingLabel) {
   const conversions = {
     g: 1,
     kg: 1000,
@@ -27,8 +27,26 @@ function convertToGrams(amount, unit) {
     tbsp: 15,
     tsp: 5
   };
+
+  const normalizedUnit = (unit || '').toLowerCase();
+
+  // If the caller passes unit="serving" (or "servings"), try to derive grams from the serving label.
+  if (normalizedUnit.startsWith('serving')) {
+    if (servingLabel) {
+      // Look for explicit grams, e.g., "120g" or "120 g" or inside parentheses.
+      const direct = servingLabel.match(/(\d+\.?\d*)\s*g/i);
+      if (direct) return amount * parseFloat(direct[1]);
+
+      // Look for ounces and convert to grams.
+      const oz = servingLabel.match(/(\d+\.?\d*)\s*oz/i);
+      if (oz) return amount * parseFloat(oz[1]) * 28.35;
+    }
+    // Fallback: assume one serving ~100g if we cannot parse.
+    return amount * 100;
+  }
+
   // converts the amount to g with the lowercase formatted unit, in case user uses uppercase
-  return amount * (conversions[unit.toLowerCase()] || 1);
+  return amount * (conversions[normalizedUnit] || 1);
 }
 
 // DB connection configuration (use environment variables when available)
@@ -97,8 +115,8 @@ function fetchFromMock(foodName, grams) {
 }
 
 // tries DB first, falls back to mock database if not
-async function calculateNutrition(foodName, amount, unit = "g", useMock = false) {
-  const grams = convertToGrams(amount, unit);
+async function calculateNutrition(foodName, amount, unit = "g", useMock = false, servingLabel) {
+  const grams = convertToGrams(amount, unit, servingLabel);
 
   try {
     if (useMock) return fetchFromMock(foodName, grams);
@@ -164,7 +182,7 @@ async function calculateMealNutrition(mealItems, restrictedAllergens, useMock = 
   const warnings = [];
 
   for (const item of mealItems) {
-    const nutrition = await calculateNutrition(item.food, item.amount, item.unit, useMock);
+    const nutrition = await calculateNutrition(item.food, item.amount, item.unit, useMock, item.servingLabel);
     if (nutrition) {
       const warning = checkAllergens(nutrition, restrictedAllergens);
       if (warning) warnings.push(warning);

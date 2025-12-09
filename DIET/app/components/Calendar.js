@@ -36,10 +36,12 @@ const Calendar = ({ onSelectDate, selected }) => {
     }
   }, [dates])
 
+  const monthLabel = selected ? moment(selected).format('MMMM') : moment().format('MMMM')
+
   return (
     <>
       <View style={styles.centered}>
-        <Text style={styles.title}>September</Text>
+        <Text style={styles.title}>{monthLabel}</Text>
       </View>
       <View style={styles.dateSection}>
         <View style={styles.scroll}>

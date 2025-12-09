@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
-import { calculateNutrition, saveMealToDatabase } from './components/db-nutrition-calc';
+import { calculateNutrition, saveMealToDatabase, saveUserMeal } from './components/db-nutrition-calc';
 
 // Attempt to derive grams from a serving size string.
 // Supports patterns like:
@@ -236,13 +236,21 @@ export default function ManualLogging() {
       onPress={async () => {
         if (itemValue && quantity && selectedFoodName) {
           try {
-            // Use the actual food name stored from the label
-            const selectedFood = selectedFoodName;
-            // Parse serving size to extract grams (e.g., "100g" -> 100)
-            const gramsPerServing = parseServingToGrams(servingSize);
-            const totalGrams = gramsPerServing * parseFloat(quantity);
-            
-            const result = await calculateNutrition(selectedFood, totalGrams, "g", false);
+            const servings = parseFloat(quantity);
+            if (Number.isNaN(servings) || servings <= 0) {
+              Alert.alert('Invalid servings', 'Please enter a positive number');
+              return;
+            }
+
+            // Send servings and the serving label to the API; backend will convert servings to grams.
+            const result = await calculateNutrition(
+              selectedFoodName,
+              servings,
+              'serving',
+              false,
+              undefined,
+              servingSize
+            );
             setNutritionResult(result as NutritionResult);
           } catch (err:any) {
             Alert.alert('Error', err.message || 'Failed to fetch nutrition');
@@ -258,10 +266,24 @@ export default function ManualLogging() {
       onPress={async () => {
   if (!nutritionResult) { Alert.alert('No data', 'Calculate nutrition first'); return; }
         try {
-          const itemsToSave = [{ food: nutritionResult.food, amount: Number(quantity), unit: 'g', calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) }];
+          const itemsToSave = [{ food: nutritionResult.food, amount: Number(quantity), unit: 'serving', servingLabel: servingSize, calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) }];
           const totals = { calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) };
+
+          // Save detailed meal (existing behavior)
           await saveMealToDatabase(itemsToSave, totals);
-          Alert.alert('Saved', 'Meal saved to database');
+
+          // Save to usermeals table using the user's email as id (must exist in users table)
+          const userEmail = 'test@purdue.edu'; // TODO: replace with logged-in user's email
+          await saveUserMeal({
+            userId: userEmail,
+            diningCourt: selectedCourt,
+            mealType: selectedMealType || 'lunch',
+            foodName: nutritionResult.food,
+            servings: Number(quantity),
+            servingLabel: servingSize
+          });
+
+          Alert.alert('Saved', 'Meal saved');
         } catch (err:any) { Alert.alert('Save failed', err.message || ''); }
       }}
     >
