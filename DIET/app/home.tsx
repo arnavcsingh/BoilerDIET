@@ -27,50 +27,44 @@ export default function HomeScreen() {
       setItems={setItems}
       style={styles.hallPicker}
     />
-    <Link href='/manual_logging' style={styles.nutritionButton}>Manual Logging</Link>
-    <Link href='/nutrition' style={styles.nutritionButton}>View History</Link>
-    <Link href='/camera' style={styles.cameraButton}>Take Picture</Link>
+    <Link href='/manual_logging' style={styles.button}>Manual Logging</Link>
+    <Link href='/nutrition' style={styles.button}>View History</Link>
+    <Link href='/camera' style={styles.button}>Take Picture</Link>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    justifyContent: 'center',
+    flex: 1,
+    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#CEB888',
+    paddingVertical: 40,
   },
   titleText: {
-    marginTop: 100,
+    marginTop: 20,
     fontSize: 40,
     fontWeight: 'bold',
   },
   descText:{
-    marginBottom: 100,
+    marginBottom: 20,
   },
   hallPicker:{
-    marginBottom: 50,
+    marginBottom: 20,
     marginRight: 50,
     marginLeft: 50,
     width: 300,
   },
-  cameraButton:{
-    marginBottom:100,
+  button: {
+    marginBottom: 0,
     padding: 20,
     backgroundColor: '#000000ff',
     color: '#ffffff',
     borderRadius: 10,
-    fontSize: 20,
+    fontSize: 16,
     textAlign: 'center',
-  },
-  nutritionButton: {
-    marginBottom:100,
-    padding: 20,
-    backgroundColor: '#000000ff',
-    color: '#ffffff',
-    borderRadius: 10,
-    fontSize: 30,
-    textAlign: 'center',
+    width: 300,
   }
 });
   
