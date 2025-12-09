@@ -47,7 +47,7 @@ app.listen(port, () => console.log(`Nutrition API listening on port ${port}`));
 const configureDB = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
+  password: process.env.DB_PASSWORD || 'MySR00tP@s$!',
   database: process.env.DB_NAME || 'diningDB',
   waitForConnections: true,
   connectionLimit: 5
@@ -56,16 +56,18 @@ const configureDB = {
 // List known dining courts from diningcourthistory
 app.get('/diningcourts', async (req, res) => {
   try {
-    console.log('Connecting to DB with:', { host: configureDB.host, user: configureDB.user, database: configureDB.database, hasPassword: !!configureDB.password });
+    console.log('Attempting to connect to DB with config:', { host: configureDB.host, user: configureDB.user, database: configureDB.database, hasPassword: !!configureDB.password });
     const conn = await mysql.createConnection(configureDB);
+    console.log('DB connection successful');
     const [rows] = await conn.execute(`SELECT DISTINCT DiningCourt FROM diningcourthistory ORDER BY DiningCourt`);
+    console.log('Query result:', rows.length, 'rows returned');
     await conn.end();
     const courts = rows.map(r => (r.DiningCourt || r.diningCourt || r.diningcourt));
+    console.log('Courts mapped:', courts);
     return res.json({ ok: true, courts });
   } catch (err) {
-    console.error('GET /diningcourts error', err);
-    // Surface more info for debugging
-    return res.status(500).json({ ok: false, error: err.message, details: { code: err.code, sqlState: err.sqlState } });
+    console.error('GET /diningcourts error:', err.code, err.sqlState, err.message);
+    return res.status(500).json({ ok: false, error: err.message, code: err.code, sqlState: err.sqlState });
   }
 });
 

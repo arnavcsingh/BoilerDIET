@@ -1,9 +1,12 @@
 import { Stack } from 'expo-router';
 
-// Ensure the mobile app has a sensible default API base for development.
-// The Android emulator (AVD) reaches the host machine's localhost at 10.0.2.2.
+// Prefer env-provided base (EXPO_PUBLIC_NUTRITION_API_BASE), fallback to Android emulator host alias 10.0.2.2.
+const envBase = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
+const defaultBase = 'http://10.0.2.2:3000';
+
 if (typeof global !== 'undefined' && !(global as any).NUTRITION_API_BASE) {
-  (global as any).NUTRITION_API_BASE = 'http://10.0.2.2:3000';
+  const base = (envBase || defaultBase).replace(/\/$/, '');
+  (global as any).NUTRITION_API_BASE = base;
 }
 
 export default function HomeLayout() {

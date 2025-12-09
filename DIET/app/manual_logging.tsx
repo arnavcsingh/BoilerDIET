@@ -62,7 +62,7 @@ export default function ManualLogging() {
         (async () => {
           try {
             setLoadingCourts(true);
-            const base = 'http://10.186.99.230:3000';
+            const base = (global as any)?.NUTRITION_API_BASE || 'http://10.0.2.2:3000';
             const cleanBase = base.replace(/\/$/, '');
             
             // Fetch courts
@@ -96,7 +96,7 @@ export default function ManualLogging() {
           if (!selectedCourt) return setItems([]);
           try {
             setLoadingItems(true);
-            const base = 'http://10.186.99.230:3000';
+            const base = (global as any)?.NUTRITION_API_BASE || 'http://10.0.2.2:3000';
             const cleanBase = base.replace(/\/$/, '');
             let url = `${cleanBase}/menu?court=${encodeURIComponent(selectedCourt)}`;
             if (selectedMealType) {
