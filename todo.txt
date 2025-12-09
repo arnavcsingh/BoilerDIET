@@ -1,0 +1,4 @@
+check 100 grams
+allow for saving of dining meal to database
+allow for addition of multiple food items to meal at once (manual logging)
+allow for viewing within history
