@@ -3,15 +3,15 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvo
 import DropDownPicker from 'react-native-dropdown-picker';
 import { calculateNutrition, saveMealToDatabase, saveUserMeal } from './components/db-nutrition-calc';
 
-// Attempt to derive grams from a serving size string.
+// Attempt to derive servings from a serving size string.
 // Supports patterns like:
 //  - "100g", "100 g"
 //  - "1 oz (28g)" or "1 oz (28 g)"
 //  - "2 pieces (85 g)"
 //  - "1 cup (240 g)"
-// Falls back to 100.
+// Falls back to 1.
 function parseServingToGrams(serving:string): number {
-  if (!serving) return 100;
+  if (!serving) return 1;
   // direct grams e.g. 100g or 100 g
   const direct = serving.match(/(\d+\.?\d*)\s*g/i);
   if (direct) return parseFloat(direct[1]);
@@ -25,8 +25,8 @@ function parseServingToGrams(serving:string): number {
   // ounces: capture number then convert (1 oz ≈ 28.3495g)
   const oz = serving.match(/(\d+\.?\d*)\s*oz/i);
   if (oz) return parseFloat(oz[1]) * 28.35;
-  // generic fallback
-  return 100;
+  // generic fallback - 1 serving
+  return 1;
 }
 
 interface NutritionResult {

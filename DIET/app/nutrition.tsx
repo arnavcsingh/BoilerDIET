@@ -274,7 +274,7 @@ export default function Nutrition() {
         {meals.map((m, idx) => (
           <View key={m.id ?? idx} style={styles.mealCard}>
             <Text style={styles.mealCardTitle}>{m.foodName} ({m.mealType || 'meal'})</Text>
-            <Text style={styles.mealCardSub}>{m.diningCourt || 'N/A'} • {m.servingSize || '1 serving'} • {Number(m.volume || 0).toFixed(0)} g</Text>
+            <Text style={styles.mealCardSub}>{m.diningCourt || 'N/A'} • {m.servingSize || '1 serving'} • {Number(m.volume || 0).toFixed(1)} servings</Text>
             <View style={styles.mealMacros}>
               <Text>Calories: {Number(m.calories).toFixed(0)}</Text>
               <Text>Protein: {Number(m.protein).toFixed(1)}g</Text>
