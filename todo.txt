@@ -1,4 +1,10 @@
-check 100 grams
+check 100 grams, DONE
 allow for saving of dining meal to database
 allow for addition of multiple food items to meal at once (manual logging)
 allow for viewing within history
+
+test user
+fname = A
+lname = B
+email = tester@purdue.edu
+pwd = password123
