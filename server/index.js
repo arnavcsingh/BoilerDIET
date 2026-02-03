@@ -236,3 +236,24 @@ app.get('/usermeals', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+app.post('/signup', async (req, res) => {
+  try {
+    const {firstName, lastName, email, password } = req.body;
+    if (!email) return res.status(400).json({ ok: false, error: 'email required' });
+    if (!password ) return res.status(400).json({ ok: false, error: 'password required' });
+    const conn = await mysql.createConnection(configureDB);
+    const userId = Date.now(); // Generate unique ID from timestamp
+    await conn.execute(
+      `INSERT INTO users (UserId, firstName, lastName, email, password)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, firstName, lastName, email, password]
+    );
+    console.log("Successfully signed up user:", email);
+    await conn.end();
+    return res.json({ ok: true, userId });
+  }catch (err) {
+    console.error('POST /signup error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});

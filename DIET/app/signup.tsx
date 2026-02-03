@@ -11,14 +11,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { signup } from './components/db-users';
 
 // Main sign up page
 export default function SignUpPage() {
   const router = useRouter();
   // State variables for form inputs
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -29,25 +30,17 @@ export default function SignUpPage() {
   };
 
   // Function to validate phone number format (10 digits)
-  const isValidPhone = (phone: string) => {
-    const phoneRegex = /^\d{10}$/;
-    return phoneRegex.test(phone.replace(/[-()\s]/g, ''));
-  };
+
 
   const handleSignUp = () => {
     // Validation checks
-    if (!name || !email || !phoneNumber || !password || !confirmPassword) {
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     if (!isValidEmail(email)) {
       Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-
-    if (!isValidPhone(phoneNumber)) {
-      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
       return;
     }
 
@@ -62,7 +55,8 @@ export default function SignUpPage() {
     }
 
     // TODO: In a real app, save user to database here
-    console.log('Sign up successful with:', { name, email, phoneNumber, password });
+    signup(firstName, lastName, email, password);
+    console.log('Sign up successful with:', { firstName, lastName, email, password });
     
     // Show success message
     Alert.alert(
@@ -71,7 +65,7 @@ export default function SignUpPage() {
       [
         {
           text: 'OK',
-          onPress: () => router.push('/login'), // Go back to login page
+          onPress: () => router.push('/'), // Go back to login page
         },
       ]
     );
@@ -100,13 +94,23 @@ export default function SignUpPage() {
           <View style={styles.formContainer}>
             <Text style={styles.signupTitle}>Create Account</Text>
 
-            {/* Name Input */}
+            {/* First Name Input */}
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
+              placeholder="First Name"
               placeholderTextColor="#666"
-              value={name}
-              onChangeText={setName}
+              value={firstName}
+              onChangeText={setFirstName}
+              autoCapitalize="words"
+            />
+
+            {/* Last Name Input */}
+            <TextInput
+              style={styles.input}
+              placeholder="Last Name"
+              placeholderTextColor="#666"
+              value={lastName}
+              onChangeText={setLastName}
               autoCapitalize="words"
             />
 
@@ -119,16 +123,6 @@ export default function SignUpPage() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
-            />
-
-            {/* Phone Number Input */}
-            <TextInput
-              style={styles.input}
-              placeholder="Phone Number"
-              placeholderTextColor="#666"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
             />
 
             {/* Password Input */}
@@ -255,4 +249,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
-});
+})
