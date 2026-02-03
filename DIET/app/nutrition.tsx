@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -159,8 +160,12 @@ export default function Nutrition() {
     (async () => {
       if (!selectedDate) return;
       try {
-        const userEmail = 'test@purdue.edu'; // replace with logged-in user's email when available
-        const res = await fetchUserMeals({ userId: userEmail, date: selectedDate });
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) {
+          console.warn('No user logged in');
+          return;
+        }
+        const res = await fetchUserMeals({ userId: userId, date: selectedDate });
         if (!active) return;
         setMeals(res.meals || []);
         setProtein(Number(res.totals?.protein || 0));

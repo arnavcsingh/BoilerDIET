@@ -30,7 +30,7 @@ async function getJson(url, opts) {
 }
 
 export async function calculateNutrition(foodName, amount = 100, unit = 'g', useMock = false, baseUrl, servingLabel = '') {
-	const base = 'http://100.69.156.199:3000';
+	const base = resolveBase(baseUrl);
 	const qs = new URLSearchParams({ food: String(foodName), amount: String(amount), unit, mock: useMock ? 'true' : 'false' });
 	if (servingLabel) qs.set('servingLabel', servingLabel);
 	const url = `${base.replace(/\/$/, '')}/nutrition?${qs.toString()}`;
@@ -63,7 +63,7 @@ export async function calculateMealNutrition(mealItems, restrictedAllergens = []
 }
 
 export async function saveMealToDatabase(mealItems, totals, baseUrl) {
-	const base = 'http://100.69.156.199:3000';
+	const base = resolveBase(baseUrl);
 	const url = `${base.replace(/\/$/, '')}/meal`;
 	const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: mealItems, totals }) });
 	const json = await res.json();
@@ -72,7 +72,7 @@ export async function saveMealToDatabase(mealItems, totals, baseUrl) {
 }
 
 export async function saveUserMeal(payload, baseUrl) {
-	const base = 'http://100.69.156.199:3000';
+	const base = resolveBase(baseUrl);
 	const url = `${base.replace(/\/$/, '')}/usermeals`;
 	const res = await fetch(url, {
 		method: 'POST',
@@ -85,7 +85,7 @@ export async function saveUserMeal(payload, baseUrl) {
 }
 
 export async function fetchUserMeals(query, baseUrl) {
-	const base = 'http://100.69.156.199:3000';
+	const base = resolveBase(baseUrl);
 	const qs = new URLSearchParams();
 	Object.entries(query || {}).forEach(([k, v]) => {
 		if (v !== undefined && v !== null) qs.set(k, String(v));

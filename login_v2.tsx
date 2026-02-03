@@ -13,11 +13,12 @@ import {
     View,
 } from 'react-native';
 
-// Mock database - stores registered users
-const registeredUsers = [
-  { email: 'test@purdue.edu', password: 'password123' },
-  { email: 'student@purdue.edu', password: 'boilermaker' },
-];
+const getApiBase = () => {
+  const fromGlobal = (global as any)?.NUTRITION_API_BASE;
+  const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
+  const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
+  return base;
+};
 
 //Main login page
 export default function LoginPage() {
@@ -50,33 +51,24 @@ export default function LoginPage() {
   };
 
 
-  // Function to validate login credentials
-  const validateCredentials = (email: string, password: string) => {
-    // Check if email and password fields are not empty
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
-      return false;
+      return;
     }
 
-    // Check if user exists in the database
-    const userExists = registeredUsers.find(
-      (user) => user.email === email && user.password === password
-    );
+    try {
+      const url = `${getApiBase()}/login`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Invalid email or password. Please try again.');
 
-    if (userExists) {
-      return true; // Credentials are correct
-    } else {
-      Alert.alert('Error', 'Invalid email or password. Please try again.');
-      return false; // Credentials are incorrect
-    }
-  };
-
-  const handleLogin = async () => {
-    // Validate credentials before logging in
-    if (validateCredentials(email, password)) {
       console.log('Login successful with:', email);
-      
-      // Show location permission alert
+
       Alert.alert(
         'Location Permission',
         'Would you like to enable location tracking? This helps us provide dining hall recommendations based on your location.',
@@ -98,6 +90,8 @@ export default function LoginPage() {
           }
         ]
       );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Login failed. Please try again.');
     }
   };
 

@@ -1,9 +1,11 @@
-import { Link } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(null);
   const [items, setItems] = useState([
@@ -13,6 +15,34 @@ export default function HomeScreen() {
     { label: 'Wiley', value: '4' },
     { label: 'Windsor', value: '5' },
   ]);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Logout',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('userEmail');
+              await AsyncStorage.removeItem('userId');
+              console.log('User logged out');
+              router.replace('/');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout');
+            }
+          },
+          style: 'destructive'
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -30,6 +60,9 @@ export default function HomeScreen() {
     <Link href='/manual_logging' style={styles.button}>Manual Logging</Link>
     <Link href='/nutrition' style={styles.button}>View History</Link>
     <Link href='/camera' style={styles.button}>Take Picture</Link>
+    <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+      <Text style={styles.logoutButtonText}>Logout</Text>
+    </TouchableOpacity>
     </View>
   );
 }
@@ -65,6 +98,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     width: 300,
+  },
+  logoutButton: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#ff4444',
+    borderRadius: 10,
+    width: 300,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   }
 });
   

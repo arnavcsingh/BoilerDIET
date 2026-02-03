@@ -236,6 +236,33 @@ app.get('/usermeals', async (req, res) => {
   }
 });
 
+// POST /login - Validate user credentials
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email) return res.status(400).json({ ok: false, error: 'email required' });
+    if (!password) return res.status(400).json({ ok: false, error: 'password required' });
+    
+    const conn = await mysql.createConnection(configureDB);
+    const [rows] = await conn.execute(
+      `SELECT UserId, firstName, lastName, email FROM users WHERE email = ? AND password = ?`,
+      [email, password]
+    );
+    await conn.end();
+
+    if (rows.length === 0) {
+      return res.status(401).json({ ok: false, error: 'Invalid email or password' });
+    }
+
+    const user = rows[0];
+    console.log("Login successful for user:", email);
+    return res.json({ ok: true, user: { userId: user.UserId, email: user.email, firstName: user.firstName, lastName: user.lastName } });
+  } catch (err) {
+    console.error('POST /login error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.post('/signup', async (req, res) => {
   try {
     const {firstName, lastName, email, password } = req.body;

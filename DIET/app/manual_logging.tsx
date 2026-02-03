@@ -1,7 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { calculateNutrition, saveMealToDatabase, saveUserMeal } from './components/db-nutrition-calc';
+
+const getApiBase = () => {
+  const fromGlobal = (global as any)?.NUTRITION_API_BASE;
+  const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
+  const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
+  return base;
+};
 
 // Attempt to derive servings from a serving size string.
 // Supports patterns like:
@@ -62,8 +70,7 @@ export default function ManualLogging() {
         (async () => {
           try {
             setLoadingCourts(true);
-            const base = 'http://100.69.156.199:3000';
-            const cleanBase = base.replace(/\/$/, '');
+            const cleanBase = getApiBase();
             
             // Fetch courts
             const courtsRes = await fetch(`${cleanBase}/diningcourts`);
@@ -96,8 +103,7 @@ export default function ManualLogging() {
           if (!selectedCourt) return setItems([]);
           try {
             setLoadingItems(true);
-            const base = 'http://100.69.156.199:3000';
-            const cleanBase = base.replace(/\/$/, '');
+            const cleanBase = getApiBase();
             let url = `${cleanBase}/menu?court=${encodeURIComponent(selectedCourt)}`;
             if (selectedMealType) {
               url += `&mealType=${encodeURIComponent(selectedMealType)}`;
@@ -272,10 +278,15 @@ export default function ManualLogging() {
           // Save detailed meal (existing behavior)
           await saveMealToDatabase(itemsToSave, totals);
 
-          // Save to usermeals table using the user's email as id (must exist in users table)
-          const userEmail = 'test@purdue.edu'; // TODO: replace with logged-in user's email
+          // Get logged-in user's ID from AsyncStorage
+          const userId = await AsyncStorage.getItem('userId');
+          if (!userId) {
+            Alert.alert('Error', 'No user logged in. Please log in first.');
+            return;
+          }
+
           await saveUserMeal({
-            userId: userEmail,
+            userId: userId,
             diningCourt: selectedCourt,
             mealType: selectedMealType || 'lunch',
             foodName: nutritionResult.food,

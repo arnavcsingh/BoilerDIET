@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -12,12 +13,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-// Mock database - stores registered users
-const registeredUsers = [
-  { email: 'test@purdue.edu', password: 'password123' },
-  { email: 'student@purdue.edu', password: 'boilermaker' },
-];
+import { login } from './components/db-users';
 
 //Main login page
 export default function LoginPage() {
@@ -49,32 +45,21 @@ export default function LoginPage() {
     }
   };
 
-
-  // Function to validate login credentials
-  const validateCredentials = (email: string, password: string) => {
+  const handleLogin = async () => {
     // Check if email and password fields are not empty
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
-      return false;
+      return;
     }
 
-    // Check if user exists in the database
-    const userExists = registeredUsers.find(
-      (user) => user.email === email && user.password === password
-    );
-
-    if (userExists) {
-      return true; // Credentials are correct
-    } else {
-      Alert.alert('Error', 'Invalid email or password. Please try again.');
-      return false; // Credentials are incorrect
-    }
-  };
-
-  const handleLogin = async () => {
-    // Validate credentials before logging in
-    if (validateCredentials(email, password)) {
+    try {
+      // Call backend login endpoint
+      const response = await login(email, password);
       console.log('Login successful with:', email);
+      
+      // Store user email in AsyncStorage for session management
+      await AsyncStorage.setItem('userEmail', email);
+      await AsyncStorage.setItem('userId', String(response.user.userId));
       
       // Show location permission alert
       Alert.alert(
@@ -86,7 +71,7 @@ export default function LoginPage() {
             style: 'cancel',
             onPress: () => {
               console.log('Location permission declined');
-              router.push('/');
+              router.push('/home');
             }
           },
           {
@@ -98,6 +83,8 @@ export default function LoginPage() {
           }
         ]
       );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Invalid email or password. Please try again.');
     }
   };
 
