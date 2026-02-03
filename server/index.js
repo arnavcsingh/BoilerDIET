@@ -20,10 +20,10 @@ function parseServingLabelToGrams(servingLabel = '') {
 
 app.get('/health', (req, res) => res.json({ ok: true, timestamp: Date.now() }));
 
-// GET /nutrition?food=Rice&amount=100&unit=g
+// GET /nutrition?food=Rice&amount=1&unit=serving
 app.get('/nutrition', async (req, res) => {
   try {
-    const { food, amount = 100, unit = 'g', servingLabel = '', mock = 'false' } = req.query;
+    const { food, amount = 1, unit = 'serving', servingLabel = '', mock = 'false' } = req.query;
     console.log('GET /nutrition - food:', food, 'amount:', amount, 'unit:', unit, 'servingLabel:', servingLabel);
     if (!food) return res.status(400).json({ ok: false, error: 'food query required' });
     const useMock = mock === 'true';
@@ -159,9 +159,8 @@ app.post('/usermeals', async (req, res) => {
     }
     const itemId = itemRows[0].itemId;
 
-    // Convert servings to grams for Volume column
-    const gramsPerServing = parseServingLabelToGrams(servingLabel);
-    const volume = gramsPerServing * Number(servings || 1);
+    // Store the number of servings directly (no conversion to grams needed since DB stores per-serving)
+    const numServings = Number(servings || 1);
 
     const today = new Date();
     const dateOnly = today.toISOString().slice(0, 10); // YYYY-MM-DD
@@ -169,11 +168,11 @@ app.post('/usermeals', async (req, res) => {
     await conn.execute(
       `INSERT INTO usermeals (UserId, Date, MealType, DiningCourt, ItemId, Volume)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, dateOnly, mealType, diningCourt, itemId, volume]
+      [userId, dateOnly, mealType, diningCourt, itemId, numServings]
     );
 
     await conn.end();
-    return res.json({ ok: true, volume, itemId });
+    return res.json({ ok: true, volume: numServings, itemId });
   } catch (err) {
     console.error('POST /usermeals error', err);
     return res.status(500).json({ ok: false, error: err.message });
@@ -205,8 +204,8 @@ app.get('/usermeals', async (req, res) => {
     await conn.end();
 
     const meals = rows.map(r => {
-      const volume = Number(r.Volume || 0);
-      const scale = volume / 100 || 0;
+      const numServings = Number(r.Volume || 0); // Volume now stores number of servings
+      const scale = numServings; // No division by 100; nutrition values are already per-serving
       return {
         id: r.Id,
         date: r.Date,
@@ -214,7 +213,7 @@ app.get('/usermeals', async (req, res) => {
         diningCourt: r.DiningCourt,
         foodName: r.foodName,
         servingSize: r.servingSize,
-        volume,
+        volume: numServings,
         calories: Number(r.Calories || 0) * scale,
         protein: Number(r.Protein || 0) * scale,
         carbs: Number(r.carbs || 0) * scale,

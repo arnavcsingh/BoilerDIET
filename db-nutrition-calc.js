@@ -15,8 +15,9 @@ const mockDatabase = {
   // more items in actual API database
 };
 
-// Converts units or serving labels to grams. Supports "serving" by parsing the serving label if it contains g/oz.
-function convertToGrams(amount, unit, servingLabel) {
+// Converts units or serving labels to number of servings.
+// Returns the number of servings (base unit is 1 serving per the food's serving size).
+function convertToServings(amount, unit, servingLabel) {
   const conversions = {
     g: 1,
     kg: 1000,
@@ -30,23 +31,31 @@ function convertToGrams(amount, unit, servingLabel) {
 
   const normalizedUnit = (unit || '').toLowerCase();
 
-  // If the caller passes unit="serving" (or "servings"), try to derive grams from the serving label.
+  // If the caller passes unit="serving" (or "servings"), return amount of servings directly.
   if (normalizedUnit.startsWith('serving')) {
-    if (servingLabel) {
-      // Look for explicit grams, e.g., "120g" or "120 g" or inside parentheses.
-      const direct = servingLabel.match(/(\d+\.?\d*)\s*g/i);
-      if (direct) return amount * parseFloat(direct[1]);
-
-      // Look for ounces and convert to grams.
-      const oz = servingLabel.match(/(\d+\.?\d*)\s*oz/i);
-      if (oz) return amount * parseFloat(oz[1]) * 28.35;
-    }
-    // Fallback: assume one serving ~100g if we cannot parse.
-    return amount * 100;
+    return amount; // Already in servings
   }
 
-  // converts the amount to g with the lowercase formatted unit, in case user uses uppercase
-  return amount * (conversions[normalizedUnit] || 1);
+  // For other units (grams, oz, etc), convert to grams first, then to servings based on serving label
+  const grams = amount * (conversions[normalizedUnit] || 1);
+  
+  // Try to extract serving size in grams from the serving label
+  if (servingLabel) {
+    const direct = servingLabel.match(/(\d+\.?\d*)\s*g/i);
+    if (direct) {
+      const servingSizeGrams = parseFloat(direct[1]);
+      return grams / servingSizeGrams;
+    }
+
+    const oz = servingLabel.match(/(\d+\.?\d*)\s*oz/i);
+    if (oz) {
+      const servingSizeGrams = parseFloat(oz[1]) * 28.35;
+      return grams / servingSizeGrams;
+    }
+  }
+  
+  // Fallback: assume 1 serving if we cannot parse (user should have provided serving size)
+  return 1;
 }
 
 // DB connection configuration (use environment variables when available)
@@ -59,7 +68,8 @@ const configureDB = {
 
 
 // Fetch nutrition facts from our DB
-async function fetchFromDB(foodName, grams) {
+// Now assumes nutrition values are stored per 1 serving (as defined by servingSize)
+async function fetchFromDB(foodName, numServings) {
   const connection = await mysql.createConnection(configureDB);
   // Fetch nutrition from foods table by name (case-insensitive)
   const [rows] = await connection.execute(
@@ -81,12 +91,12 @@ async function fetchFromDB(foodName, grams) {
 
   if (!rows.length) return null;
 
-  // Assume base values are per 100g unless serving size specifies grams; scale linearly by grams
+  // Base values are per 1 serving; scale by number of servings
   const entry = rows[0];
-  const scale = grams / 100;
+  const scale = numServings;
   return {
     food: entry.name,
-    serving: `${grams}g`,
+    serving: entry.servingSize || '1 serving',
     calories: (Number(entry.calories || 0) * scale).toFixed(0),
     protein: (Number(entry.protein || 0) * scale).toFixed(1),
     carbs: (Number(entry.carbs || 0) * scale).toFixed(1),
@@ -96,16 +106,17 @@ async function fetchFromDB(foodName, grams) {
 }
 
 // Fetches nutirtion info from mock database if it cant access the API
-function fetchFromMock(foodName, grams) {
+// Now assumes base values are per 1 serving
+function fetchFromMock(foodName, numServings) {
   const entry = mockDatabase[foodName.toLowerCase()];
   // returns null if food item doesnt exist in food database
   if (!entry) return null;
 
-  // assume base values for one portion size are per 100g, can be altered to fetch the base quantity for one serving size
-  const scale = grams / 100; 
+  // Base values are per 1 serving; scale by number of servings
+  const scale = numServings; 
   return {
     food: foodName,
-    serving: `${grams}g`,
+    serving: '1 serving',
     calories: (entry.calories * scale).toFixed(0),
     protein: (entry.protein * scale).toFixed(1),
     carbs: (entry.carbs * scale).toFixed(1),
@@ -115,17 +126,17 @@ function fetchFromMock(foodName, grams) {
 }
 
 // tries DB first, falls back to mock database if not
-async function calculateNutrition(foodName, amount, unit = "g", useMock = false, servingLabel) {
-  const grams = convertToGrams(amount, unit, servingLabel);
+async function calculateNutrition(foodName, amount, unit = "serving", useMock = false, servingLabel) {
+  const numServings = convertToServings(amount, unit, servingLabel);
 
   try {
-    if (useMock) return fetchFromMock(foodName, grams);
-    return await fetchFromDB(foodName, grams);
+    if (useMock) return fetchFromMock(foodName, numServings);
+    return await fetchFromDB(foodName, numServings);
   } 
   
   catch (err) {
     console.warn("Falling back to mock database: ", err.message);
-    return fetchFromMock(foodName, grams);
+    return fetchFromMock(foodName, numServings);
   }
 }
 
