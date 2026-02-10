@@ -17,10 +17,10 @@ const DEFAULT_BASES = [
 ];
 
 function resolveBase(baseUrl) {
-	if (baseUrl) return baseUrl;
-	if (global?.NUTRITION_API_BASE) return global.NUTRITION_API_BASE;
+	//if (baseUrl) return baseUrl;
+	//if (global?.NUTRITION_API_BASE) return global.NUTRITION_API_BASE;
 	// Pick the first likely host; the developer can override when needed.
-	return DEFAULT_BASES[0];
+	return 'http://10.186.102.92:3000';
 }
 
 async function getJson(url, opts) {

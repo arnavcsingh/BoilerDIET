@@ -3,12 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { calculateNutrition, saveMealToDatabase, saveUserMeal } from './components/db-nutrition-calc';
+import { useRouter } from 'expo-router';
 
 const getApiBase = () => {
   const fromGlobal = (global as any)?.NUTRITION_API_BASE;
   const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
   const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
-  return base;
+  return 'http://10.186.102.92:3000'.replace(/\/$/, '');
 };
 
 // Attempt to derive servings from a serving size string.
@@ -48,6 +49,7 @@ interface NutritionResult {
 }
 
 export default function ManualLogging() {
+  const router = useRouter();
   const [openCourt, setOpenCourt] = useState(false);
   const [openMealType, setOpenMealType] = useState(false);
   const [openItem, setOpenItem] = useState(false);
@@ -63,6 +65,10 @@ export default function ManualLogging() {
   const [selectedMealType, setSelectedMealType] = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
   const [loadingCourts, setLoadingCourts] = useState(false);
+  const [totalCalories, setTotalCalories] = useState(0);
+  const [totalProtein, setTotalProtein] = useState(0);
+  const [totalCarbs, setTotalCarbs] = useState(0);
+  const [totalFat, setTotalFat] = useState(0);
 
       // Fetch dining courts and meal types on mount
       useEffect(() => {
@@ -131,7 +137,10 @@ export default function ManualLogging() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.innerContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={true}
+      >
         <Text style={styles.title}>Manual Logging Page</Text>
 
         <View style={[styles.dropdownContainer, { zIndex: 3000 }]}>
@@ -266,18 +275,21 @@ export default function ManualLogging() {
     >
       <Text style={styles.submitButtonText}>Calculate Nutrition</Text>
     </TouchableOpacity>
-
-    <TouchableOpacity
+      <TouchableOpacity
       style={[styles.submitButton, {marginTop:10}]}
       onPress={async () => {
   if (!nutritionResult) { Alert.alert('No data', 'Calculate nutrition first'); return; }
         try {
           const itemsToSave = [{ food: nutritionResult.food, amount: Number(quantity), unit: 'serving', servingLabel: servingSize, calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) }];
           const totals = { calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) };
-
+          
           // Save detailed meal (existing behavior)
           await saveMealToDatabase(itemsToSave, totals);
-
+          setTotalCalories(totalCalories + Number(nutritionResult.calories || 0));
+          setTotalProtein(totalProtein + Number(nutritionResult.protein || 0));
+          setTotalCarbs(totalCarbs + Number(nutritionResult.carbs || 0));
+          setTotalFat(totalFat + Number(nutritionResult.fat || 0));
+          console.log(totalCalories, totalProtein, totalCarbs, totalFat);
           // Get logged-in user's ID from AsyncStorage
           const userId = await AsyncStorage.getItem('userId');
           if (!userId) {
@@ -294,16 +306,25 @@ export default function ManualLogging() {
             servingLabel: servingSize
           });
 
-          Alert.alert('Saved', 'Meal saved');
+          Alert.alert('Saved', 'Added to Meal');
         } catch (err:any) { Alert.alert('Save failed', err.message || ''); }
       }}
     >
-      <Text style={styles.submitButtonText}>Save Meal</Text>
+      <Text style={styles.submitButtonText}>Add to Meal</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      style={[styles.submitButton, {marginTop:10}]}
+      onPress={async () => {
+        router.push('/home');
+      }}
+    >
+      <Text style={styles.submitButtonText}>Finish</Text>
     </TouchableOpacity>
 
     {nutritionResult && (
       <View style={styles.nutritionResult}>
-        <Text style={styles.nutritionText}>Nutrition Information:</Text>
+        <Text style={styles.nutritionText}>Nutrition Information for {nutritionResult.food}:</Text>
         <Text>Calories: {nutritionResult.calories}</Text>
         <Text>Protein: {nutritionResult.protein}g</Text>
         <Text>Carbs: {nutritionResult.carbs}g</Text>
@@ -311,7 +332,17 @@ export default function ManualLogging() {
       </View>
     )}
 
+    {(totalCalories > 0 || totalCarbs > 0 || totalProtein > 0 || totalFat > 0) && (
+      <View style={styles.nutritionResult}>
+        <Text style={styles.nutritionText}>Total Nutrition for Meal:</Text>
+        <Text>Calories: {totalCalories}</Text>
+        <Text>Protein: {totalProtein}g</Text>
+        <Text>Carbs: {totalCarbs}g</Text>
+        <Text>Fat: {totalFat}g</Text>
       </View>
+    )}
+
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -320,11 +351,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#CEB888',
   },
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  scrollViewContent: {
     alignItems: 'center',
     paddingVertical: 20,
+    paddingBottom: 40,
   },
   dropdownContainer: {
     marginBottom: 20,
@@ -379,7 +409,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     width: 300,
-    marginBottom: 300,
+    marginBottom: 20,
   },
   nutritionText: {
     fontSize: 18,

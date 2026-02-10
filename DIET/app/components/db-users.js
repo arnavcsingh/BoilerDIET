@@ -2,7 +2,7 @@ const getApiBase = () => {
   const fromGlobal = global?.NUTRITION_API_BASE;
   const fromEnv = process?.env?.EXPO_PUBLIC_NUTRITION_API_BASE;
   const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
-  return base;
+  return 'http://10.186.102.92:3000'.replace(/\/$/, '');
 };
 
 export async function login(email, password) {
@@ -20,3 +20,5 @@ export async function signup(firstName, lastName, email, password) {
 	if (!json.ok) throw new Error(json.error || 'signup failed');
 	return json;
 }
+
+export default {login, signup};
