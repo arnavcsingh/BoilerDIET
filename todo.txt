@@ -1,7 +1,7 @@
 check 100 grams, DONE
-allow for saving of dining meal to database
+allow for saving of dining meal to database, DONE
 allow for addition of multiple food items to meal at once (manual logging)
-allow for viewing within history
+allow for viewing within history, DONE
 
 test user
 fname = A

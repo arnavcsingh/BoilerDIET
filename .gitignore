@@ -1,3 +1,15 @@
 .env
 node_modules/
 *.sql
+*.jpg
+*.png
+*.csv
+
+**/train/*
+**/val/*
+!**/train/.gitkeep
+!**/val/.gitkeep
+**/runs/**
+**/*.pt
+**/*.cache
+**/*.zip

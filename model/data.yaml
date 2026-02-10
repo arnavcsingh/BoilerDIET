@@ -1,0 +1,10 @@
+path: .
+train: images/train
+val: images/val
+
+names:
+  0: pizza
+  1: chicken_nugget
+  2: french_fries
+  3: fried_rice
+  4: ice_cream
