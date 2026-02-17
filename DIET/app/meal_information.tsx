@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 // Mock data - replace with your API/props
-const mealData = {
+const mockMealData = {
   mealName: 'Earhart Lunch', //Dining hall location, change with hall and API
   date: '09/16/2025',//Time data needed to put in here
   //Information about each food and nutrition value
@@ -54,6 +54,28 @@ const mealData = {
 export default function MealDetailsPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
+
+  let mealData = mockMealData;
+  
+  if (params.mealData) { // Parses through params to get the meal data sent from the nutrition page
+    try {
+      const groupedMeal = JSON.parse(params.mealData as string);
+      mealData = {
+        mealName: `${groupedMeal.diningCourt} ${groupedMeal.mealType}`,
+        date: groupedMeal.date || new Date().toLocaleDateString(),
+        foods: groupedMeal.items.map((item: any) => ({
+          name: item.foodName,
+          amount: item.servingSize || '1 serving',
+          calories: item.calories,
+          carbs: item.carbs,
+          protein: item.protein,
+          fat: item.fat,
+        })),
+      };
+    } catch (e) {
+      console.error('Error parsing meal data:', e);
+    }
+  }
 
   const imageUri = params.imageUri as string || 'https://via.placeholder.com/300';
 

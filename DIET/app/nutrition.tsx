@@ -1,10 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
 import { fetchUserMeals } from './components/db-nutrition-calc';
+
+const groupMeals = (meals: any[]) => { // Groups meals together by dining court and meal type
+  const grouped: { [key: string]: any } = {};
+  meals.forEach(meal => {
+    const key = `${meal.diningCourt || 'N/A'}_${meal.mealType || 'meal'}`;
+    if (!grouped[key]) {
+      grouped[key] = { key, diningCourt: meal.diningCourt || 'N/A', mealType: meal.mealType || 'meal', items: [], totals: { calories: 0, protein: 0, carbs: 0, fat: 0 } };
+    }
+    grouped[key].items.push(meal);
+    grouped[key].totals.calories += Number(meal.calories || 0);
+    grouped[key].totals.protein += Number(meal.protein || 0);
+    grouped[key].totals.carbs += Number(meal.carbs || 0);
+    grouped[key].totals.fat += Number(meal.fat || 0);
+  });
+  return Object.values(grouped);
+};
 
 export default function Nutrition() {
   const router = useRouter();
@@ -271,24 +287,42 @@ export default function Nutrition() {
       </View>
       
       {/* Meal list */}
-      <View style={styles.mealList}>
-        <Text style={styles.sectionTitle}>Meals ({meals.length})</Text>
+      <ScrollView // Makes the meal list scrollable
+      contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={true}
+        style={styles.mealList}>
+        <Text style={styles.sectionTitle}>Meals ({groupMeals(meals).length})</Text>
         {meals.length === 0 && (
           <Text style={{ color: '#555' }}>No meals for this date.</Text>
         )}
-        {meals.map((m, idx) => (
-          <View key={m.id ?? idx} style={styles.mealCard}>
-            <Text style={styles.mealCardTitle}>{m.foodName} ({m.mealType || 'meal'})</Text>
-            <Text style={styles.mealCardSub}>{m.diningCourt || 'N/A'} • {m.servingSize || '1 serving'} • {Number(m.volume || 0).toFixed(1)} servings</Text>
+        {groupMeals(meals).map((groupedMeal) => (
+          <TouchableOpacity
+            key={groupedMeal.key}
+            style={styles.mealCard}
+            onPress={() => {
+              router.push({ // When clicked opens the meal information page and sends the meal data to the page
+                pathname: '/meal_information',
+                params: {
+                  mealData: JSON.stringify(groupedMeal),
+                },
+              });
+            }}
+          >
+            <Text style={styles.mealCardTitle}>
+              {groupedMeal.diningCourt} - {groupedMeal.mealType}
+            </Text>
+            <Text style={styles.mealCardSub}>
+              {groupedMeal.items.length} item{groupedMeal.items.length !== 1 ? 's' : ''}
+            </Text>
             <View style={styles.mealMacros}>
-              <Text>Calories: {Number(m.calories).toFixed(0)}</Text>
-              <Text>Protein: {Number(m.protein).toFixed(1)}g</Text>
-              <Text>Carbs: {Number(m.carbs).toFixed(1)}g</Text>
-              <Text>Fat: {Number(m.fat).toFixed(1)}g</Text>
+              <Text>Calories: {Number(groupedMeal.totals.calories).toFixed(0)}</Text>
+              <Text>Protein: {Number(groupedMeal.totals.protein).toFixed(1)}g</Text>
+              <Text>Carbs: {Number(groupedMeal.totals.carbs).toFixed(1)}g</Text>
+              <Text>Fat: {Number(groupedMeal.totals.fat).toFixed(1)}g</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -388,5 +422,10 @@ const styles = StyleSheet.create({
   },
   mealMacros: {
     gap: 2,
+  },
+  scrollViewContent: {
+    alignItems: 'stretch',
+    paddingVertical: 20,
+    paddingBottom: 40,
   },
 });
