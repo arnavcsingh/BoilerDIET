@@ -5,8 +5,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Modal,
+  TextInput,
 } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { editUserMeal, deleteUserMeal } from './components/db-nutrition-calc';
 
 // Mock data - replace with your API/props
 const mockMealData = {
@@ -16,32 +20,40 @@ const mockMealData = {
   //Replace data with information from API
   foods: [
     {
+      id: 1,
       name: 'Rice',
-      amount: '200g',
+      volume: '1',
+      amount: 'bowl',
       calories: 260,
       carbs: 56,
       protein: 5,
       fat: 0.5,
     },
     {
+      id: 2,
       name: 'Chicken',
-      amount: '100g',
+      volume: '2',
+      amount: 'leg',
       calories: 165,
       carbs: 0.6,
       protein: 31,
       fat: 3.6,
     },
     {
+      id: 3,
       name: 'Peppers',
-      amount: '25g',
+      volume: '1',
+      amount: 'cup',
       calories: 63,
       carbs: 16,
       protein: 2.6,
       fat: 0.5,
     },
     {
+      id: 4,
       name: 'Onions',
-      amount: '25g',
+      volume: '1',
+      amount: 'cup',
       calories: 11,
       carbs: 2.6,
       protein: 0.3,
@@ -54,28 +66,33 @@ const mockMealData = {
 export default function MealDetailsPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [mealData, setMealData] = useState(mockMealData);
 
-  let mealData = mockMealData;
-  
-  if (params.mealData) { // Parses through params to get the meal data sent from the nutrition page
-    try {
-      const groupedMeal = JSON.parse(params.mealData as string);
-      mealData = {
-        mealName: `${groupedMeal.diningCourt} ${groupedMeal.mealType}`,
-        date: groupedMeal.date || new Date().toLocaleDateString(),
-        foods: groupedMeal.items.map((item: any) => ({
-          name: item.foodName,
-          amount: item.servingSize || '1 serving',
-          calories: item.calories,
-          carbs: item.carbs,
-          protein: item.protein,
-          fat: item.fat,
-        })),
-      };
-    } catch (e) {
-      console.error('Error parsing meal data:', e);
+  React.useEffect(() => {
+    if (params.mealData) { // Parses through params to get the meal data sent from the nutrition page
+      try {
+        const groupedMeal = JSON.parse(params.mealData as string);
+        setMealData({
+          mealName: `${groupedMeal.diningCourt} ${groupedMeal.mealType}`,
+          date: groupedMeal.date || new Date().toLocaleDateString(),
+          foods: groupedMeal.items.map((item: any) => ({
+            id: item.id,
+            name: item.foodName,
+            volume: item.volume,
+            amount: item.servingSize || '1 serving',
+            calories: item.calories,
+            carbs: item.carbs,
+            protein: item.protein,
+            fat: item.fat,
+          })),
+        });
+      } catch (e) {
+        console.error('Error parsing meal data:', e);
+      }
     }
-  }
+  }, [params.mealData]);
 
   const imageUri = params.imageUri as string || 'https://via.placeholder.com/300';
 
@@ -86,6 +103,35 @@ export default function MealDetailsPage() {
   const handleDetails = (foodName: string) => {
     // Navigate to food details or handle action
     console.log(`View details for ${foodName}`);
+    router.push({
+      pathname: '/meal_information',
+      params: {
+        ItemId: JSON.stringify(foodName),
+      },
+    });
+  };
+
+  const handleEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditAmount(mealData.foods[index].volume);
+  };
+
+  const handleSaveEdit = (index: number) => {
+    const updatedFoods = [...mealData.foods];
+    updatedFoods[index].volume = editAmount;
+    setMealData({ ...mealData, foods: updatedFoods });
+    editUserMeal(mealData.foods[index].id, editAmount);
+    setEditingIndex(null);
+  };
+
+  const handleCancel = () => {
+    setEditingIndex(null);
+  };
+
+  const handleDelete = (index: number) => {
+    const updatedFoods = mealData.foods.filter((_, i) => i !== index);
+    setMealData({ ...mealData, foods: updatedFoods });
+    deleteUserMeal(mealData.foods[index].id);
   };
 
 //header section, all of the buttons at the top of the page
@@ -122,6 +168,7 @@ export default function MealDetailsPage() {
           <View key={index} style={styles.foodCard}> 
             <View style={styles.foodHeader}>
               <Text style={styles.foodName}>{food.name}</Text>
+              <Text style={styles.foodAmount}>{food.volume}</Text>
               <Text style={styles.foodAmount}>{food.amount}</Text>
             </View>
 
@@ -145,15 +192,49 @@ export default function MealDetailsPage() {
               <Text style={styles.nutritionValue}>{food.fat} g</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.detailsButton}
-              onPress={() => handleDetails(food.name)}
-            >
-              <Link href = '/NutritionDetails' style={styles.detailsText}>Details →</Link>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.detailsButton} onPress={() => handleDetails(food.name)}>
+                <Text style={styles.detailsText}>Details →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.editButton} onPress={() => handleEdit(index)}>
+                <Text style={styles.editText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(index)}>
+                <Text style={styles.deleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </ScrollView>
+
+        // Displays the popup to edit item volumes
+      <Modal visible={editingIndex !== null} transparent animationType="fade"> 
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Amount</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Amount"
+              value={editAmount}
+              onChangeText={setEditAmount}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalSaveButton}
+                onPress={() => editingIndex !== null && handleSaveEdit(editingIndex)}
+              >
+                <Text style={styles.modalButtonText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={handleCancel}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -272,6 +353,74 @@ const styles = StyleSheet.create({
   detailsText: {
     fontSize: 14,
     color: '#cfb991',
+    fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  editButton: {
+    paddingHorizontal: 8,
+  },
+  editText: {
+    fontSize: 14,
+    color: '#cfb991',
+    fontWeight: '600',
+  },
+  deleteButton: {
+    paddingHorizontal: 8,
+  },
+  deleteText: {
+    fontSize: 14,
+    color: '#e74c3c',
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: '#CEB888',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#ddd',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

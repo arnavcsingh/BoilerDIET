@@ -20,7 +20,7 @@ function resolveBase(baseUrl) {
 	//if (baseUrl) return baseUrl;
 	//if (global?.NUTRITION_API_BASE) return global.NUTRITION_API_BASE;
 	// Pick the first likely host; the developer can override when needed.
-	return 'http://10.186.102.92:3000';
+	return 'http://100.69.157.72:3000';
 }
 
 async function getJson(url, opts) {
@@ -97,4 +97,29 @@ export async function fetchUserMeals(query, baseUrl) {
 	return json;
 }
 
-export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase, saveUserMeal, fetchUserMeals };
+export async function editUserMeal(id, volume, baseUrl) { // Edits volume of user meal
+	const base = resolveBase(baseUrl);
+	const url = `${base.replace(/\/$/, '')}/usermeals/${id}`;
+	const res = await fetch(url, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ volume })
+	});
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'edit failed');
+	return json;
+}
+
+export async function deleteUserMeal(id, baseUrl) { // Deletes user meal
+	const base = resolveBase(baseUrl);
+	const url = `${base.replace(/\/$/, '')}/usermeals/${id}`;
+	const res = await fetch(url, {
+		method: 'DELETE',
+		headers: { 'Content-Type': 'application/json' }
+	});
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'delete failed');
+	return json;
+}
+
+export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase, saveUserMeal, fetchUserMeals, editUserMeal, deleteUserMeal };

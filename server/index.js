@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
-import { calculateNutrition, calculateMealNutrition, saveMealToDatabase } from '../db-nutrition-calc.js';
+import { calculateNutrition, calculateMealNutrition, saveMealToDatabase, editMealItem } from '../db-nutrition-calc.js';
 dotenv.config();
 const app = express();
 app.use(cors());
@@ -232,6 +232,50 @@ app.get('/usermeals', async (req, res) => {
     return res.json({ ok: true, meals, totals });
   } catch (err) {
     console.error('GET /usermeals error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Edits a meal's volume
+app.put('/usermeals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { volume } = req.body;
+    if (!id) return res.status(400).json({ ok: false, error: 'id required' });
+    if (volume === undefined) return res.status(400).json({ ok: false, error: 'volume required' });
+
+    const conn = await mysql.createConnection(configureDB);
+
+    await conn.execute(
+      `UPDATE usermeals SET Volume = ? WHERE Id = ?`,
+      [Number(volume), id]
+    );
+
+    await conn.end();
+    return res.json({ ok: true, volume: Number(volume) });
+  } catch (err) {
+    console.error('PUT /usermeals error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Deletes a meal item
+app.delete('/usermeals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ ok: false, error: 'id required' });
+
+    const conn = await mysql.createConnection(configureDB);
+
+    await conn.execute(
+      `DELETE FROM usermeals WHERE Id = ?`,
+      [id]
+    );
+
+    await conn.end();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /usermeals error', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
