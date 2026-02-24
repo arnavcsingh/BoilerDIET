@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
-import { calculateNutrition, calculateMealNutrition, saveMealToDatabase, editMealItem } from '../db-nutrition-calc.js';
+import { calculateNutrition, calculateMealNutrition, saveMealToDatabase} from '../db-nutrition-calc.js';
 dotenv.config();
 const app = express();
 app.use(cors());
