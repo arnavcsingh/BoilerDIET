@@ -6,8 +6,8 @@ for i in range(1, 257):
     upd_path = rf"C:\Users\ricep\Downloads\uecformat\dataset256\UECFOOD256\{i}\bb_upd.txt"
 
     with open(upd_path, "w") as file:
-        file.write("img x1 y1 x2 y2")
-        
+        file.write("img x_center y_center box_w box_h\n")
+
     with open(bb_path, "r") as file:
         next(file)
         for line in file:
