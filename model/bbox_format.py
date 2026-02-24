@@ -32,7 +32,7 @@ for i in range(1, 257):
 
             print(rf"Center at ({(round(x_center,6))}, {(round(y_center,6))}) Width and Height are {(round(box_w,6))} and {(round(box_h,6))}")
             
-            new_values = str(f"{int(img)} {round(x_center)} {round(y_center,6)} {round(box_w,6)} {round(box_h,6)}\n")
+            new_values = str(f"{int(img)} {round(x_center,6)} {round(y_center,6)} {round(box_w,6)} {round(box_h,6)}\n")
 
             print(new_values)
 
