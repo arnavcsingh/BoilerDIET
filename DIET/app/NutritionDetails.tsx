@@ -1,6 +1,7 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
 interface NutritionData {
   calories: number;
@@ -17,23 +18,24 @@ interface NutritionData {
   iron: number;
 }
 
-interface Props {
-  route: {
-    params: {
-      itemId: string;
-    };
-  };
-}
-
-const NutritionDetails: React.FC<Props> = ({ route }) => {
-  const { itemId } = route.params;
+const NutritionDetails: React.FC = () => {
+  const params = useLocalSearchParams();
+  const itemId = params.itemId as string;
+  
+  if (!itemId) {
+    return (
+      <View style={styles.loader}>
+        <Text>Item not found</Text>
+      </View>
+    );
+  }
   const [nutrition, setNutrition] = useState<NutritionData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`http://localhost:5001/api/nutrition/${itemId}`)
+    axios.get(`http://10.186.104.182:3000/food/${itemId}`)
       .then((response) => {
-        setNutrition(response.data);
+        setNutrition(response.data.data);
         setLoading(false);
       })
       .catch((error) => {
@@ -52,22 +54,23 @@ const NutritionDetails: React.FC<Props> = ({ route }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/*
-      <Text style={styles.caloriesTitle}>Calories <Text style={styles.caloriesValue}>{nutrition.calories}</Text></Text>
-
-      <View style={styles.separator} />
-      {renderRow('Total Fat', `${nutrition.totalFat}g`, '13%')}
-      {renderSubRow('Saturated Fat', `${nutrition.saturatedFat}g`, '5%')}
-      {renderRow('Cholesterol', `${nutrition.cholesterol}mg`, '12%')}
-      {renderRow('Sodium', `${nutrition.sodium}mg`, '31%')}
-      {renderRow('Total Carbohydrate', `${nutrition.totalCarbs}g`, '4%')}
-      {renderSubRow('Sugar', `${nutrition.sugar}g`)}
-      {renderSubRow('Added Sugar', `${nutrition.addedSugar}g`)}
-      {renderSubRow('Dietary Fiber', `${nutrition.dietaryFiber}g`)}
-      {renderRow('Protein', `${nutrition.protein}g`, '14%')}
-      {renderRow('Calcium', `${nutrition.calcium}%`, '4%')}
-      {renderRow('Iron', `${nutrition.iron}%`, '10%')}
-*/}
+      {nutrition && (
+        <>
+          <Text style={styles.caloriesTitle}>Calories <Text style={styles.caloriesValue}>{nutrition.calories}</Text></Text>
+          <View style={styles.separator} />
+          {renderRow('Total Fat', `${nutrition.totalFat}g`, '13%')}
+          {renderSubRow('Saturated Fat', `${nutrition.saturatedFat}g`, '5%')}
+          {renderRow('Cholesterol', `${nutrition.cholesterol}mg`, '12%')}
+          {renderRow('Sodium', `${nutrition.sodium}mg`, '31%')}
+          {renderRow('Total Carbohydrate', `${nutrition.totalCarbs}g`, '4%')}
+          {renderSubRow('Sugar', `${nutrition.sugar}g`)}
+          {renderSubRow('Added Sugar', `${nutrition.addedSugar}g`)}
+          {renderSubRow('Dietary Fiber', `${nutrition.dietaryFiber}g`)}
+          {renderRow('Protein', `${nutrition.protein}g`, '14%')}
+          {renderRow('Calcium', `${nutrition.calcium}%`, '4%')}
+          {renderRow('Iron', `${nutrition.iron}%`, '10%')}
+        </>
+      )}
     </ScrollView>
   );
 };
@@ -95,6 +98,7 @@ const renderSubRow = (label: string, value: string, percent?: string) => (
 const styles = StyleSheet.create({
   container: {
     padding: 20,
+    paddingTop: 50,
     backgroundColor: '#fff',
   },
   loader: {

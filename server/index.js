@@ -37,6 +37,48 @@ app.get('/nutrition', async (req, res) => {
   }
 });
 
+// Get the nutrition details of a specific item using its itemId
+app.get('/food/:itemId', async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    if (!itemId) return res.status(400).json({ ok: false, error: 'itemId required' });
+    
+    const conn = await mysql.createConnection(configureDB);
+    const [rows] = await conn.execute(
+      `SELECT itemId, name, servingSize, Calories, Protein, totalCarbohydrate AS carbs, totalFat AS fat,
+              saturatedFat, cholesterol, sodium, sugar, addedSugar, dietaryFiber, calcium, iron
+       FROM foods WHERE itemId = ?`,
+      [itemId]
+    );
+    await conn.end();
+    
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'food not found' });
+    }
+    
+    const food = rows[0];
+    const nutritionData = {
+      calories: Number(food.Calories || 0),
+      totalFat: Number(food.totalFat || 0),
+      saturatedFat: Number(food.saturatedFat || 0),
+      cholesterol: Number(food.cholesterol || 0),
+      sodium: Number(food.sodium || 0),
+      totalCarbs: Number(food.carbs || 0),
+      sugar: Number(food.sugar || 0),
+      addedSugar: Number(food.addedSugar || 0),
+      dietaryFiber: Number(food.dietaryFiber || 0),
+      protein: Number(food.Protein || 0),
+      calcium: Number(food.calcium || 0),
+      iron: Number(food.iron || 0),
+    };
+    
+    return res.json({ ok: true, data: nutritionData });
+  } catch (err) {
+    console.error('GET /food/:itemId error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // POST /meal  { items: [...], totals: { calories, protein, carbs, fat } }
 app.post('/meal', async (req, res) => {
   try {
@@ -192,7 +234,7 @@ app.get('/usermeals', async (req, res) => {
     const end = endDate || date || today;
 
     const [rows] = await conn.execute(
-      `SELECT um.Id, um.Date, um.MealType, um.DiningCourt, um.Volume,
+      `SELECT um.Id, um.Date, um.MealType, um.DiningCourt, um.ItemId, um.Volume,
               f.name AS foodName, f.servingSize, f.Calories, f.Protein, f.totalCarbohydrate AS carbs, f.totalFat AS fat
        FROM usermeals um
        JOIN foods f ON um.ItemId = f.itemId
@@ -211,6 +253,7 @@ app.get('/usermeals', async (req, res) => {
         date: r.Date,
         mealType: r.MealType,
         diningCourt: r.DiningCourt,
+        itemId: r.ItemId,
         foodName: r.foodName,
         servingSize: r.servingSize,
         volume: numServings,

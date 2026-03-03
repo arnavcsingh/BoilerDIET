@@ -28,6 +28,7 @@ const mockMealData = {
       carbs: 56,
       protein: 5,
       fat: 0.5,
+      itemId: '5681c96b-68da-48f5-a88d-d9e534a5a404',
     },
     {
       id: 2,
@@ -38,6 +39,7 @@ const mockMealData = {
       carbs: 0.6,
       protein: 31,
       fat: 3.6,
+      itemId: '5681c96b-68da-48f5-a88d-d9e534a5a404',
     },
     {
       id: 3,
@@ -48,6 +50,7 @@ const mockMealData = {
       carbs: 16,
       protein: 2.6,
       fat: 0.5,
+      itemId: '5681c96b-68da-48f5-a88d-d9e534a5a404',
     },
     {
       id: 4,
@@ -58,6 +61,7 @@ const mockMealData = {
       carbs: 2.6,
       protein: 0.3,
       fat: 0,
+      itemId: '5681c96b-68da-48f5-a88d-d9e534a5a404',
     },
   ],
 };
@@ -86,6 +90,7 @@ export default function MealDetailsPage() {
             carbs: item.carbs,
             protein: item.protein,
             fat: item.fat,
+            itemId: item.itemId,
           })),
         });
       } catch (e) {
@@ -100,15 +105,10 @@ export default function MealDetailsPage() {
     router.push('/');
   };
 
-  const handleDetails = (foodName: string) => {
+  const handleDetails = (itemId: string) => {
     // Navigate to food details or handle action
-    console.log(`View details for ${foodName}`);
-    router.push({
-      pathname: '/meal_information',
-      params: {
-        ItemId: JSON.stringify(foodName),
-      },
-    });
+    console.log(`View details for ${itemId}`);
+    router.push(`/NutritionDetails?itemId=${itemId}`);
   };
 
   const handleEdit = (index: number) => {
@@ -193,7 +193,7 @@ export default function MealDetailsPage() {
             </View>
 
             <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.detailsButton} onPress={() => handleDetails(food.name)}>
+              <TouchableOpacity style={styles.detailsButton} onPress={() => handleDetails(food.itemId)}>
                 <Text style={styles.detailsText}>Details →</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.editButton} onPress={() => handleEdit(index)}>
