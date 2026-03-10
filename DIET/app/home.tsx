@@ -60,6 +60,7 @@ export default function HomeScreen() {
     <Link href='/manual_logging' style={styles.button}>Manual Logging</Link>
     <Link href='/nutrition' style={styles.button}>View History</Link>
     <Link href='/camera' style={styles.button}>Take Picture</Link>
+    <Link href='/profile' style={styles.button}>Profile</Link>
     <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
       <Text style={styles.logoutButtonText}>Logout</Text>
     </TouchableOpacity>

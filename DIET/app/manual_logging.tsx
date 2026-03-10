@@ -9,7 +9,7 @@ const getApiBase = () => {
   const fromGlobal = (global as any)?.NUTRITION_API_BASE;
   const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
   const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
-  return 'http://10.186.104.182:3000'.replace(/\/$/, '');
+  return 'http://10.186.107.148:3000'.replace(/\/$/, '');
 };
 
 // Attempt to derive servings from a serving size string.

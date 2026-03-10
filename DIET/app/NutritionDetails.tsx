@@ -4,7 +4,14 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useLocalSearchParams } from 'expo-router';
 
 interface NutritionData {
+  itemId: string;
+  name: string;
+  ingredientDetails: string;
   calories: number;
+  protein: number;
+  traits: string;
+  servingSize: string;
+  caloriesFromFat: number;
   totalFat: number;
   saturatedFat: number;
   cholesterol: number;
@@ -13,7 +20,6 @@ interface NutritionData {
   sugar: number;
   addedSugar: number;
   dietaryFiber: number;
-  protein: number;
   calcium: number;
   iron: number;
 }
@@ -33,7 +39,7 @@ const NutritionDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`http://10.186.104.182:3000/food/${itemId}`)
+    axios.get(`http://10.186.107.148:3000/food/${itemId}`)
       .then((response) => {
         setNutrition(response.data.data);
         setLoading(false);
@@ -56,10 +62,14 @@ const NutritionDetails: React.FC = () => {
     <ScrollView contentContainerStyle={styles.container}>
       {nutrition && (
         <>
+          <Text style={styles.caloriesTitle}>{nutrition.name}</Text>
+          <Text style={styles.subLabel}>Serving Size: {nutrition.servingSize}</Text>
+          <View style={styles.separator} />
           <Text style={styles.caloriesTitle}>Calories <Text style={styles.caloriesValue}>{nutrition.calories}</Text></Text>
           <View style={styles.separator} />
           {renderRow('Total Fat', `${nutrition.totalFat}g`, '13%')}
           {renderSubRow('Saturated Fat', `${nutrition.saturatedFat}g`, '5%')}
+          {renderSubRow('Calories From Fat', `${nutrition.caloriesFromFat}cal`)}
           {renderRow('Cholesterol', `${nutrition.cholesterol}mg`, '12%')}
           {renderRow('Sodium', `${nutrition.sodium}mg`, '31%')}
           {renderRow('Total Carbohydrate', `${nutrition.totalCarbs}g`, '4%')}
@@ -69,6 +79,11 @@ const NutritionDetails: React.FC = () => {
           {renderRow('Protein', `${nutrition.protein}g`, '14%')}
           {renderRow('Calcium', `${nutrition.calcium}%`, '4%')}
           {renderRow('Iron', `${nutrition.iron}%`, '10%')}
+          <View style={styles.separator} />
+          {renderRow('Traits', nutrition.traits)}
+          {<Text style={styles.subLabel}>{nutrition.ingredientDetails}</Text>}
+          <View style={styles.separator} />
+          {<Text style={styles.subLabel}>* Percent Daily Values are based on a 2,000 calorie diet. Your daily values may be higher or lower depending on your calorie needs.</Text>}
         </>
       )}
     </ScrollView>

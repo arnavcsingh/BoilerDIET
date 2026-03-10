@@ -45,8 +45,9 @@ app.get('/food/:itemId', async (req, res) => {
     
     const conn = await mysql.createConnection(configureDB);
     const [rows] = await conn.execute(
-      `SELECT itemId, name, servingSize, Calories, Protein, totalCarbohydrate AS carbs, totalFat AS fat,
-              saturatedFat, cholesterol, sodium, sugar, addedSugar, dietaryFiber, calcium, iron
+      `SELECT itemId, name, IngredientDetails, Calories, Protein, totalCarbohydrate AS totalCarbs, totalFat,
+              saturatedFat, cholesterol, sodium, sugar, addedSugar, dietaryFiber, calcium, iron,
+              Traits, servingSize, caloriesFromFat
        FROM foods WHERE itemId = ?`,
       [itemId]
     );
@@ -58,12 +59,18 @@ app.get('/food/:itemId', async (req, res) => {
     
     const food = rows[0];
     const nutritionData = {
+      itemId: food.itemId,
+      name: food.name,
+      ingredientDetails: food.IngredientDetails || '',
+      traits: food.Traits || '',
+      servingSize: food.servingSize || '',
       calories: Number(food.Calories || 0),
+      caloriesFromFat: Number(food.caloriesFromFat || 0),
       totalFat: Number(food.totalFat || 0),
       saturatedFat: Number(food.saturatedFat || 0),
       cholesterol: Number(food.cholesterol || 0),
       sodium: Number(food.sodium || 0),
-      totalCarbs: Number(food.carbs || 0),
+      totalCarbs: Number(food.totalCarbs || 0),
       sugar: Number(food.sugar || 0),
       addedSugar: Number(food.addedSugar || 0),
       dietaryFiber: Number(food.dietaryFiber || 0),
