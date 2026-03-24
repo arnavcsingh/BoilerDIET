@@ -99,7 +99,8 @@ export default function MealDetailsPage() {
     }
   }, [params.mealData]);
 
-  const imageUri = params.imageUri as string || 'https://via.placeholder.com/300';
+  const imageUri = params.imageUri as string;
+  const displayImageUri = imageUri && imageUri.length > 0 ? { uri: imageUri } : require('@/assets/images/partial-react-logo.png');
 
   const handleBack = () => { //back button, switch pages
     router.push('/');
@@ -157,7 +158,7 @@ export default function MealDetailsPage() {
         {/* Meal Image */}
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: imageUri }}
+            source={displayImageUri}
             style={styles.mealImage}
             resizeMode="cover"
           />

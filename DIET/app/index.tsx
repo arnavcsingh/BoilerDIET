@@ -90,7 +90,7 @@ export default function LoginPage() {
 
   // Function to navigate to sign up page
   const handleSignUp = () => {
-    router.push('/signup');
+    router.push('/home');
   };
 
   return (

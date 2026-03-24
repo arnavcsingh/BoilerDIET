@@ -35,9 +35,11 @@ export default function App() {
   // Save photo function
   const savePhoto = () => {
     if (photo) {
+      // Ensure image format is correct by using proper URI
+      const imageUri = photo.startsWith('file://') ? photo : `file://${photo}`;
       router.push({
         pathname: '/meal_information', // Adjust this path to match your routing structure
-        params: { imageUri: photo }
+        params: { imageUri }
       });
     }
   };
