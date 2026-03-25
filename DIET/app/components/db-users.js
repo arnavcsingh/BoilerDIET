@@ -2,7 +2,7 @@ const getApiBase = () => {
   const fromGlobal = global?.NUTRITION_API_BASE;
   const fromEnv = process?.env?.EXPO_PUBLIC_NUTRITION_API_BASE;
   const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
-  return 'http://10.186.107.148:3000'.replace(/\/$/, '');
+  return 'http://10.186.100.248:3000'.replace(/\/$/, '');
 };
 
 export async function login(email, password) {
@@ -21,4 +21,20 @@ export async function signup(firstName, lastName, email, password) {
 	return json;
 }
 
-export default {login, signup};
+export async function updateUserProfile(userId, firstName, lastName, email, password, currentPassword = '') {
+	const url = `${getApiBase()}/updateUserProfile`;
+	const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, firstName, lastName, email, password, currentPassword }) });
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'update user profile failed');
+	return json;
+}
+
+export async function getUserData(userId) {
+	const url = `${getApiBase()}/getUserData`;
+	const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) });
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'get user data failed');
+	return json;
+}
+
+export default {login, signup, updateUserProfile, getUserData};
