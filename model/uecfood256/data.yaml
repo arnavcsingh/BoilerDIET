@@ -1,0 +1,10 @@
+train: my_data/images/train
+val: my_data/images/val
+
+nc: 5
+names:
+  0: rice
+  1: fried rice
+  2: spaghetti
+  3: fried chicken
+  4: chicken nugget
