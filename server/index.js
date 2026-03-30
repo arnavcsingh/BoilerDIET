@@ -377,3 +377,67 @@ app.post('/signup', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+app.post('/getUserData', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId required' });
+    
+    const conn = await mysql.createConnection(configureDB);
+    const [rows] = await conn.execute(
+      `SELECT UserId, firstName, lastName, email FROM users WHERE UserId = ?`,
+      [userId]
+    );
+    await conn.end();
+
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'User not found' });
+    }
+
+    const user = rows[0];
+    console.log("Retrieved user data for userId:", userId);
+    return res.json({ ok: true, userId: user.UserId, firstName: user.firstName, lastName: user.lastName, email: user.email });
+  } catch (err) {
+    console.error('POST /getUserData error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/updateUserProfile', async (req, res) => {
+  try {
+    const { userId, firstName, lastName, email, password, currentPassword } = req.body;
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId required' });
+    
+    const conn = await mysql.createConnection(configureDB);
+    
+    // if the user is updating their password, they need to enter their current password as well
+    if (password) {
+      if (!currentPassword) {
+        await conn.end();
+        return res.status(400).json({ ok: false, error: 'current password required' });
+      }
+      
+      const [rows] = await conn.execute(
+        `SELECT password FROM users WHERE UserId = ?`,
+        [userId]
+      );
+      
+      if (rows.length === 0 || rows[0].password !== currentPassword) {
+        await conn.end();
+        return res.status(401).json({ ok: false, error: 'Current password is incorrect' });
+      }
+    }
+    
+    await conn.execute(
+      `UPDATE users SET firstName = ?, lastName = ?, email = ?, password = ? WHERE UserId = ?`,
+      [firstName, lastName, email, password || null, userId]
+    );
+    await conn.end();
+    
+    console.log("Updated user profile for userId:", userId);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /updateUserProfile error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
