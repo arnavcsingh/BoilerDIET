@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   Alert,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -52,38 +53,60 @@ export default function HomeScreen() {
 
       {/* Buttons */}
       <View style={styles.buttonContainer}>
-        <Link href="/manual_logging" asChild>
-          <TouchableOpacity style={[styles.button, styles.redGlow]}>
-            <Text style={styles.buttonText}>Manual Logging</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity
+          style={[styles.button, styles.redGlow]}
+          onPress={() => router.push('/manual_logging')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Manual Logging</Text>
+        </TouchableOpacity>
 
-        <Link href="/nutrition" asChild>
-          <TouchableOpacity style={[styles.button, styles.greenGlow]}>
-            <Text style={styles.buttonText}>View History</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity
+          style={[styles.button, styles.greenGlow]}
+          onPress={() => router.push('/nutrition')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>View History</Text>
+        </TouchableOpacity>
 
-        <Link href="/camera" asChild>
-          <TouchableOpacity style={[styles.button, styles.pinkGlow]}>
-            <Text style={styles.buttonText}>Take Picture</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity
+          style={[styles.button, styles.pinkGlow]}
+          onPress={() => router.push('/camera')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Take Picture</Text>
+        </TouchableOpacity>
 
-        <Link href="/profile" asChild>
-          <TouchableOpacity style={[styles.button, styles.blueGlow]}>
-            <Text style={styles.buttonText}>Profile</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity
+          style={[styles.button, styles.blueGlow]}
+          onPress={() => router.push('/profile')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>Profile</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Logout */}
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} activeOpacity={0.8}>
         <Text style={styles.logoutButtonText}>Logout</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const glowStyle = (color: string, bg: string, border: string) => ({
+  backgroundColor: bg,
+  borderColor: border,
+  ...(Platform.OS === 'ios'
+    ? {
+        shadowColor: color,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 12,
+      }
+    : {}),
+  elevation: 20,
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -120,56 +143,29 @@ const styles = StyleSheet.create({
   button: {
     width: 300,
     padding: 18,
-    backgroundColor: '#000',
     borderRadius: 12,
     marginVertical: 12,
     alignItems: 'center',
+    borderWidth: 2,
   },
 
   buttonText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
 
-  // Glow styles
-  redGlow: {
-    shadowColor: 'red',
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-
-  greenGlow: {
-    shadowColor: 'green',
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-
-  pinkGlow: {
-    shadowColor: 'magenta',
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-
-  blueGlow: {
-    shadowColor: 'blue',
-    shadowOffset: { width: 3, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 6,
-  },
+  // Glow styles — each has its own borderColor
+  redGlow: glowStyle('red', '#000000', '#da1212'),
+  greenGlow: glowStyle('green', '#000000', 'green'),
+  pinkGlow: glowStyle('magenta', '#000000', 'magenta'),
+  blueGlow: glowStyle('#2b00ff', '#000000', '#2b00ff'),
 
   logoutButton: {
     marginTop: 30,
     width: 300,
     padding: 18,
-    backgroundColor: '#E74C3C',
+    backgroundColor: '#ed1111',
     borderRadius: 12,
     alignItems: 'center',
     shadowColor: '#000',
@@ -180,7 +176,7 @@ const styles = StyleSheet.create({
   },
 
   logoutButtonText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },
