@@ -385,7 +385,7 @@ app.post('/getUserData', async (req, res) => {
     
     const conn = await mysql.createConnection(configureDB);
     const [rows] = await conn.execute(
-      `SELECT UserId, firstName, lastName, email FROM users WHERE UserId = ?`,
+      `SELECT UserId, firstName, lastName, email, proteinGoal, carbsGoal, fatGoal FROM users WHERE UserId = ?`,
       [userId]
     );
     await conn.end();
@@ -396,7 +396,7 @@ app.post('/getUserData', async (req, res) => {
 
     const user = rows[0];
     console.log("Retrieved user data for userId:", userId);
-    return res.json({ ok: true, userId: user.UserId, firstName: user.firstName, lastName: user.lastName, email: user.email });
+    return res.json({ ok: true, userId: user.UserId, firstName: user.firstName, lastName: user.lastName, email: user.email, proteinGoal: user.proteinGoal || 50, carbsGoal: user.carbsGoal || 275, fatGoal: user.fatGoal || 78 });
   } catch (err) {
     console.error('POST /getUserData error', err);
     return res.status(500).json({ ok: false, error: err.message });
@@ -405,7 +405,7 @@ app.post('/getUserData', async (req, res) => {
 
 app.post('/updateUserProfile', async (req, res) => {
   try {
-    const { userId, firstName, lastName, email, password, currentPassword } = req.body;
+    const { userId, firstName, lastName, email, password, currentPassword, proteinGoal, carbsGoal, fatGoal } = req.body;
     if (!userId) return res.status(400).json({ ok: false, error: 'userId required' });
     
     const conn = await mysql.createConnection(configureDB);
@@ -429,8 +429,8 @@ app.post('/updateUserProfile', async (req, res) => {
     }
     
     await conn.execute(
-      `UPDATE users SET firstName = ?, lastName = ?, email = ?, password = ? WHERE UserId = ?`,
-      [firstName, lastName, email, password || null, userId]
+      `UPDATE users SET firstName = ?, lastName = ?, email = ?, password = ?, proteinGoal = ?, carbsGoal = ?, fatGoal = ? WHERE UserId = ?`,
+      [firstName, lastName, email, password || null, proteinGoal || 50, carbsGoal || 275, fatGoal || 78, userId]
     );
     await conn.end();
     
