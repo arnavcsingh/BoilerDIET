@@ -126,11 +126,13 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 28,
     fontWeight: 'bold',
+    fontFamily: 'Times New Roman',
   },
 
   descText: {
-    fontSize: 14,
+    fontSize: 17,
     marginBottom: 30,
+    fontFamily: 'Times New Roman',
   },
 
   buttonContainer: {
@@ -158,8 +160,8 @@ const styles = StyleSheet.create({
   // Glow styles — each has its own borderColor
   redGlow: glowStyle('#da1212', '#000000', '#da1212'),
   greenGlow: glowStyle('#006400', '#000000', '#006400'),
-  pinkGlow: glowStyle('#8B008B', '#000000', '#8B008B'),
-  blueGlow: glowStyle('#00008B', '#000000', '#00008B'),
+  pinkGlow: glowStyle('#c30cc3', '#000000', '#c30cc3'),
+  blueGlow: glowStyle('#1919d4', '#000000', '#1919d4'),
 
   logoutButton: {
     marginTop: 30,
@@ -167,12 +169,14 @@ const styles = StyleSheet.create({
     padding: 18,
     backgroundColor: '#ea0c0c',
     borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#ea0c0c',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowColor: '#CEB888',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 15,
+    shadowRadius: 16,
+    elevation: 25,
   },
 
   logoutButtonText: {
