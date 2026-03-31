@@ -156,16 +156,16 @@ const styles = StyleSheet.create({
   },
 
   // Glow styles — each has its own borderColor
-  redGlow: glowStyle('red', '#000000', '#da1212'),
-  greenGlow: glowStyle('green', '#000000', 'green'),
-  pinkGlow: glowStyle('magenta', '#000000', 'magenta'),
-  blueGlow: glowStyle('#2b00ff', '#000000', '#2b00ff'),
+  redGlow: glowStyle('#da1212', '#000000', '#da1212'),
+  greenGlow: glowStyle('#006400', '#000000', '#006400'),
+  pinkGlow: glowStyle('#8B008B', '#000000', '#8B008B'),
+  blueGlow: glowStyle('#00008B', '#000000', '#00008B'),
 
   logoutButton: {
     marginTop: 30,
     width: 300,
     padding: 18,
-    backgroundColor: '#ed1111',
+    backgroundColor: '#ea0c0c',
     borderRadius: 12,
     alignItems: 'center',
     shadowColor: '#000',
