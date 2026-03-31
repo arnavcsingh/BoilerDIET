@@ -5,6 +5,7 @@ import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from '
 import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
 import { fetchUserMeals } from './components/db-nutrition-calc';
+import { getUserData } from './components/db-users';
 
 const groupMeals = (meals: any[]) => { // Groups meals together by dining court and meal type
   const grouped: { [key: string]: any } = {};
@@ -37,9 +38,9 @@ export default function Nutrition() {
   const [fat, setFat] = useState(0);
   const [meals, setMeals] = useState<any[]>([]);
   //set goals for the nutrients
-  const proteinGoal = 60;
-  const carbsGoal = 60;
-  const fatGoal = 77;
+  const [proteinGoal, setProteinGoal] = useState(50);
+  const [carbsGoal, setCarbsGoal] = useState(275);
+  const [fatGoal, setFatGoal] = useState(78);
   //checks how much of the goal is completed
   const [notifications, setNotifications] = useState<{
     protein: { halfway: boolean; complete: boolean };
@@ -75,16 +76,32 @@ export default function Nutrition() {
   
   //check progress and initiate notifications
   useEffect(() => {
+    const loadUserGoals = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) return;
+        const userData = await getUserData(userId);
+        setProteinGoal(userData.proteinGoal || 50);
+        setCarbsGoal(userData.carbsGoal || 275);
+        setFatGoal(userData.fatGoal || 78);
+      } catch (error) {
+        console.error('Error loading user goals:', error);
+      }
+    };
+    loadUserGoals();
+  }, []);
+
+  useEffect(() => {
     checkProgress('protein', protein, proteinGoal);
-  }, [protein]);
+  }, [protein, proteinGoal]);
   
   useEffect(() => {
     checkProgress('carbs', carbs, carbsGoal);
-  }, [carbs]);
+  }, [carbs, carbsGoal]);
   
   useEffect(() => {
     checkProgress('fat', fat, fatGoal);
-  }, [fat]);
+  }, [fat, fatGoal]);
   
   const checkProgress = (
     nutrient: 'protein' | 'carbs' | 'fat',

@@ -10,6 +10,9 @@ export default function ProfileScreen() {
   const [lastName, setLastName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [proteinGoal, setProteinGoal] = useState<number>(50);
+  const [carbsGoal, setCarbsGoal] = useState<number>(275);
+  const [fatGoal, setFatGoal] = useState<number>(78);
   const [loading, setLoading] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -27,6 +30,9 @@ export default function ProfileScreen() {
           setFirstName(userData.firstName || null);
           setLastName(userData.lastName || null);
           setEmail(userData.email || null);
+          setProteinGoal(userData.proteinGoal || 50);
+          setCarbsGoal(userData.carbsGoal || 275);
+          setFatGoal(userData.fatGoal || 78);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -50,13 +56,16 @@ export default function ProfileScreen() {
       if (editingField === 'password') {
         if (!currentPasswordValue.trim() || !newPasswordValue.trim()) return;
         
-        await updateUserProfile(userId, firstName || '', lastName || '', email || '', newPasswordValue, currentPasswordValue);
+        await updateUserProfile(userId, firstName || '', lastName || '', email || '', newPasswordValue, currentPasswordValue, proteinGoal, carbsGoal, fatGoal);
       } else {
         if (!editValue.trim()) return;
 
         let newFirstName = firstName;
         let newLastName = lastName;
         let newEmail = email;
+        let newProteinGoal = proteinGoal;
+        let newCarbsGoal = carbsGoal;
+        let newFatGoal = fatGoal;
 
         if (editingField === 'firstName') {
           newFirstName = editValue;
@@ -68,9 +77,18 @@ export default function ProfileScreen() {
           newEmail = editValue;
           setEmail(editValue);
           await AsyncStorage.setItem('userEmail', editValue);
+        } else if (editingField === 'proteinGoal') {
+          newProteinGoal = parseInt(editValue) || 60;
+          setProteinGoal(newProteinGoal);
+        } else if (editingField === 'carbsGoal') {
+          newCarbsGoal = parseInt(editValue) || 60;
+          setCarbsGoal(newCarbsGoal);
+        } else if (editingField === 'fatGoal') {
+          newFatGoal = parseInt(editValue) || 77;
+          setFatGoal(newFatGoal);
         }
         
-        await updateUserProfile(userId, newFirstName || '', newLastName || '', newEmail || '', '');
+        await updateUserProfile(userId, newFirstName || '', newLastName || '', newEmail || '', '', '', newProteinGoal, newCarbsGoal, newFatGoal);
       }
       
       setEditingField(null);
@@ -132,6 +150,33 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => handleEdit('password', '')}>
             <Text style={styles.editButton}>Change</Text>
           </TouchableOpacity>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Protein Goal (g):</Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.value}>{proteinGoal}</Text>
+            <TouchableOpacity onPress={() => handleEdit('proteinGoal', proteinGoal.toString())}>
+              <Text style={styles.editButton}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Carbs Goal (g):</Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.value}>{carbsGoal}</Text>
+            <TouchableOpacity onPress={() => handleEdit('carbsGoal', carbsGoal.toString())}>
+              <Text style={styles.editButton}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Fat Goal (g):</Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.value}>{fatGoal}</Text>
+            <TouchableOpacity onPress={() => handleEdit('fatGoal', fatGoal.toString())}>
+              <Text style={styles.editButton}>Edit</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.label}>User ID:</Text>

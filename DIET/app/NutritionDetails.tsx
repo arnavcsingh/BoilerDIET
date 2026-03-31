@@ -39,7 +39,7 @@ const NutritionDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`http://10.186.100.248:3000/food/${itemId}`)
+    axios.get(`http://10.186.99.255:3000/food/${itemId}`)
       .then((response) => {
         setNutrition(response.data.data);
         setLoading(false);
