@@ -1,7 +1,11 @@
 import { Camera, CameraView } from "expo-camera";
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from "react";
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+// ── Swap this out when you have a remote server ──────────────────────────────
+const INFERENCE_SERVER_URL = "http://localhost:8000";
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -11,6 +15,8 @@ export default function App() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [type, setType] = useState<'back' | 'front'>('back');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
@@ -32,15 +38,47 @@ export default function App() {
     setPhoto(null);
   };
 
-  // Save photo function
-  const savePhoto = () => {
-    if (photo) {
-      // Ensure image format is correct by using proper URI
+  // Save photo function — POSTs image to inference server, then navigates
+  const savePhoto = async () => {
+    if (!photo) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
       const imageUri = photo.startsWith('file://') ? photo : `file://${photo}`;
-      router.push({
-        pathname: '/meal_information', // Adjust this path to match your routing structure
-        params: { imageUri }
+
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        name: 'photo.jpg',
+        type: 'image/jpeg',
+      } as any);
+
+      const response = await fetch(`${INFERENCE_SERVER_URL}/classify`, {
+        method: 'POST',
+        body: formData,
       });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      // result expected shape: { label: string, matches: string[] }
+
+      router.push({
+        pathname: '/meal_information',
+        params: {
+          imageUri,
+          classification: result.label ?? '',
+          matches: JSON.stringify(result.matches ?? []),
+        },
+      });
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to reach inference server');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -66,14 +104,17 @@ export default function App() {
         <Image source={{ uri: photo }} style={styles.preview} />
         <View style={styles.buttonContainer}>
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.button} onPress={retakePhoto}>
+            <TouchableOpacity style={styles.button} onPress={retakePhoto} disabled={submitting}>
               <Text style={styles.buttonText}>Retake</Text>
             </TouchableOpacity>
             <View style={{ width: 20 }} />
-            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={savePhoto}>
-              <Text style={styles.buttonText}>Save</Text>
+            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={savePhoto} disabled={submitting}>
+              {submitting
+                ? <ActivityIndicator color="#000" />
+                : <Text style={styles.buttonText}>Save</Text>}
             </TouchableOpacity>
           </View>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
       </View>
     );
@@ -155,6 +196,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  errorText: {
+    color: "#ff4444",
+    textAlign: "center",
+    marginTop: 8,
+    fontSize: 13,
   },
   // Circular frame overlay styles
   overlay: {
