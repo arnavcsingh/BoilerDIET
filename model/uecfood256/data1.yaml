@@ -1,0 +1,6 @@
+train: my_data/images/train
+val: my_data/images/val
+
+nc: 5
+names: ['rice', 'eels on rice', 'pilaf', 'chicken and egg on rice', 'pork cutlet on rice']
+class_weights: [222/133, 222/18, 222/26, 222/26, 222/20] # Manually set class weights that're greater with less instances relative to raw number of instances
