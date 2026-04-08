@@ -88,7 +88,7 @@ export default function ProfileScreen() {
           setFatGoal(newFatGoal);
         }
         
-        await updateUserProfile(userId, newFirstName || '', newLastName || '', newEmail || '', '', '', newProteinGoal, newCarbsGoal, newFatGoal);
+        await updateUserProfile(userId, newFirstName || '', newLastName || '', newEmail || '', null, null, newProteinGoal, newCarbsGoal, newFatGoal);
       }
       
       setEditingField(null);
