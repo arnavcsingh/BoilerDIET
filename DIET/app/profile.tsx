@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Modal, TextInput } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Modal, TextInput, ScrollView } from 'react-native';
 import { updateUserProfile, getUserData } from './components/db-users';
+
+const ALLERGEN_OPTIONS = ['Eggs', 'Gluten', 'Milk', 'Soy', 'Vegetarian', 'Wheat', 'Sesame', 'Vegan'];
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -13,6 +15,8 @@ export default function ProfileScreen() {
   const [proteinGoal, setProteinGoal] = useState<number>(50);
   const [carbsGoal, setCarbsGoal] = useState<number>(275);
   const [fatGoal, setFatGoal] = useState<number>(78);
+  const [allergens, setAllergens] = useState<string>('');
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -33,6 +37,7 @@ export default function ProfileScreen() {
           setProteinGoal(userData.proteinGoal || 50);
           setCarbsGoal(userData.carbsGoal || 275);
           setFatGoal(userData.fatGoal || 78);
+          setAllergens(userData.allergens || '');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -47,6 +52,10 @@ export default function ProfileScreen() {
   const handleEdit = (field: string, value: string) => {
     setEditingField(field);
     setEditValue(value);
+    if (field === 'allergens') {
+      const currentSelected = allergens ? allergens.split(',').map(a => a.trim()) : [];
+      setSelectedAllergens(currentSelected);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -56,7 +65,11 @@ export default function ProfileScreen() {
       if (editingField === 'password') {
         if (!currentPasswordValue.trim() || !newPasswordValue.trim()) return;
         
-        await updateUserProfile(userId, firstName || '', lastName || '', email || '', newPasswordValue, currentPasswordValue, proteinGoal, carbsGoal, fatGoal);
+        await updateUserProfile(userId, firstName || '', lastName || '', email || '', newPasswordValue, currentPasswordValue, proteinGoal, carbsGoal, fatGoal, allergens);
+      } else if (editingField === 'allergens') {
+        const allergenString = selectedAllergens.join(',');
+        setAllergens(allergenString);
+        await updateUserProfile(userId, firstName || '', lastName || '', email || '', undefined, undefined, proteinGoal, carbsGoal, fatGoal, allergenString);
       } else {
         if (!editValue.trim()) return;
 
@@ -88,7 +101,7 @@ export default function ProfileScreen() {
           setFatGoal(newFatGoal);
         }
         
-        await updateUserProfile(userId, newFirstName || '', newLastName || '', newEmail || '', null, null, newProteinGoal, newCarbsGoal, newFatGoal);
+        await updateUserProfile(userId, newFirstName || '', newLastName || '', newEmail || '', undefined, undefined, newProteinGoal, newCarbsGoal, newFatGoal, allergens);
       }
       
       setEditingField(null);
@@ -104,6 +117,15 @@ export default function ProfileScreen() {
     setEditValue('');
     setCurrentPasswordValue('');
     setNewPasswordValue('');
+    setSelectedAllergens([]);
+  };
+
+  const toggleAllergen = (allergen: string) => {
+    setSelectedAllergens(prev =>
+      prev.includes(allergen)
+        ? prev.filter(a => a !== allergen)
+        : [...prev, allergen]
+    );
   };
 
   if (loading) {
@@ -179,6 +201,15 @@ export default function ProfileScreen() {
           </View>
         </View>
         <View style={styles.infoRow}>
+          <Text style={styles.label}>Allergens:</Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.value}>{allergens || 'None'}</Text>
+            <TouchableOpacity onPress={() => handleEdit('allergens', allergens)}>
+              <Text style={styles.editButton}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={styles.infoRow}>
           <Text style={styles.label}>User ID:</Text>
           <Text style={styles.value}>{userId || 'Not set'}</Text>
         </View>
@@ -212,6 +243,21 @@ export default function ProfileScreen() {
                   secureTextEntry
                 />
               </>
+            ) : editingField === 'allergens' ? (
+              <ScrollView style={styles.allergenContainer}>
+                {ALLERGEN_OPTIONS.map(allergen => (
+                  <TouchableOpacity
+                    key={allergen}
+                    style={styles.allergenOption}
+                    onPress={() => toggleAllergen(allergen)}
+                  >
+                    <View style={[styles.checkbox, selectedAllergens.includes(allergen) && styles.checkboxSelected]}>
+                      {selectedAllergens.includes(allergen) && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                    <Text style={styles.allergenLabel}>{allergen}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             ) : (
               <TextInput
                 style={styles.modalInput}
@@ -347,6 +393,42 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  allergenContainer: {
+    maxHeight: 250,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 8,
+  },
+  allergenOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#CEB888',
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#CEB888',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  allergenLabel: {
+    fontSize: 16,
+    color: '#000000',
   },
 
 });

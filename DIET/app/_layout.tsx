@@ -21,6 +21,7 @@ export default function HomeLayout() {
       <Stack.Screen name="NutritionDetails"/>
       <Stack.Screen name="manual_logging"/>
       <Stack.Screen name="home"/>
+      <Stack.Screen name="profile"/>
       <Stack.Screen name="signup"/>
     </Stack>
   );
