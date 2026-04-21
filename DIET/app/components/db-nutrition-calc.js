@@ -20,7 +20,7 @@ function resolveBase(baseUrl) {
 	//if (baseUrl) return baseUrl;
 	//if (global?.NUTRITION_API_BASE) return global.NUTRITION_API_BASE;
 	// Pick the first likely host; the developer can override when needed.
-	return 'http://10.186.99.255:3000';
+	return 'http://100.69.153.25:3000';
 }
 
 async function getJson(url, opts) {
