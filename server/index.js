@@ -228,6 +228,71 @@ app.post('/usermeals', async (req, res) => {
   }
 });
 
+// Get user streak (consecutive days of logging food)
+app.get('/userstreak', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId required' });
+
+    const conn = await mysql.createConnection(configureDB);
+
+    // Get all distinct dates the user has logged meals, ordered descending
+    const [rows] = await conn.execute(
+      `SELECT DISTINCT Date FROM usermeals WHERE UserId = ? ORDER BY Date DESC`,
+      [userId]
+    );
+    await conn.end();
+
+    if (!rows.length) {
+      return res.json({ ok: true, streak: 0 });
+    }
+
+    // Calculate streak
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const dates = rows.map(r => r.Date);
+    let streak = 0;
+    let checkDate = today;
+
+    // Check if user logged today or yesterday to start the streak
+    const todayStr = today.toISOString().slice(0, 10);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+    if (dates.includes(todayStr)) {
+      checkDate = today;
+      streak = 1;
+    } else if (dates.includes(yesterdayStr)) {
+      checkDate = yesterday;
+      streak = 1;
+    } else {
+      // No streak - user hasn't logged today or yesterday
+      return res.json({ ok: true, streak: 0 });
+    }
+
+    // Count consecutive days backwards
+    while (true) {
+      const prevDate = new Date(checkDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().slice(0, 10);
+
+      if (dates.includes(prevDateStr)) {
+        streak++;
+        checkDate = prevDate;
+      } else {
+        break;
+      }
+    }
+
+    return res.json({ ok: true, streak });
+  } catch (err) {
+    console.error('GET /userstreak error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Fetch user meals (optionally by date or date range)
 app.get('/usermeals', async (req, res) => {
   try {
