@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
-import { fetchUserMeals } from './components/db-nutrition-calc';
+import { fetchUserMeals, fetchUserStreak } from './components/db-nutrition-calc';
 import { getUserData } from './components/db-users';
 
 const groupMeals = (meals: any[]) => { // Groups meals together by dining court and meal type
@@ -55,6 +55,12 @@ export default function Nutrition() {
   const [showNotification, setShowNotification] = useState<string | null>(null);
   //confetti animation run or no run
   const [showConfetti, setShowConfetti] = useState(false);
+  //streak
+  const [streak, setStreak] = useState(0);
+
+  const getApiBase = () => {
+    return 'http://10.186.99.255:3000'.replace(/\/$/, '');
+  };
   
   
   const notificationAnim = useRef(new Animated.Value(0)).current;
@@ -84,6 +90,14 @@ export default function Nutrition() {
         setProteinGoal(userData.proteinGoal || 50);
         setCarbsGoal(userData.carbsGoal || 275);
         setFatGoal(userData.fatGoal || 78);
+
+        // Load streak
+        try {
+          const streakCount = await fetchUserStreak(userId, getApiBase());
+          setStreak(streakCount);
+        } catch (err) {
+          console.log('Could not fetch streak:', err);
+        }
       } catch (error) {
         console.error('Error loading user goals:', error);
       }
@@ -220,6 +234,16 @@ export default function Nutrition() {
         <Text style={styles.backButtonText}>← Back</Text>
       </TouchableOpacity>
       <Text style={styles.titleText}>Nutrition</Text>
+      
+      {/* Streak Button */}
+      <TouchableOpacity
+        style={[styles.streakButton, streak > 0 && styles.streakButtonActive]}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.streakEmoji}>🔥</Text>
+        <Text style={styles.streakText}>{streak} Day Streak</Text>
+      </TouchableOpacity>
+      
       <Calendar onSelectDate={setSelectedDate} selected={selectedDate} />
       {/* Notification Banner */}
       {showNotification && (
@@ -444,5 +468,29 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     paddingVertical: 20,
     paddingBottom: 40,
+  },
+  streakButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333333',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: '#666666',
+    marginBottom: 16,
+  },
+  streakButtonActive: {
+    backgroundColor: '#ff6600',
+    borderColor: '#ff8800',
+  },
+  streakEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  streakText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

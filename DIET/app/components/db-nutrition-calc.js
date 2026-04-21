@@ -122,4 +122,13 @@ export async function deleteUserMeal(id, baseUrl) { // Deletes user meal
 	return json;
 }
 
-export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase, saveUserMeal, fetchUserMeals, editUserMeal, deleteUserMeal };
+export async function fetchUserStreak(userId, baseUrl) {
+	const base = resolveBase(baseUrl);
+	const url = `${base.replace(/\/$/, '')}/userstreak?userId=${userId}`;
+	const res = await fetch(url);
+	const json = await res.json();
+	if (!json.ok) throw new Error(json.error || 'fetch streak failed');
+	return json.streak;
+}
+
+export default { calculateNutrition, calculateMealNutrition, saveMealToDatabase, saveUserMeal, fetchUserMeals, editUserMeal, deleteUserMeal, fetchUserStreak };
