@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Calendar from './components/Calendar';
@@ -227,7 +227,39 @@ export default function Nutrition() {
     })();
     return () => { active = false; };
   }, [selectedDate]);
-  
+
+  // Refresh streak when date changes (to update after logging a meal)
+  useEffect(() => {
+    (async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          const streakCount = await fetchUserStreak(userId, getApiBase());
+          setStreak(streakCount);
+        }
+      } catch (err) {
+        console.log('Could not fetch streak:', err);
+      }
+    })();
+  }, [selectedDate]);
+
+  // Refresh streak every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const userId = await AsyncStorage.getItem('userId');
+          if (userId) {
+            const streakCount = await fetchUserStreak(userId, getApiBase());
+            setStreak(streakCount);
+          }
+        } catch (err) {
+          console.log('Could not fetch streak:', err);
+        }
+      })();
+    }, [])
+  );
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
