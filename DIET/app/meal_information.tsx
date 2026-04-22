@@ -10,7 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { editUserMeal, deleteUserMeal } from './components/db-nutrition-calc';
+import { editUserMeal, deleteUserMeal, calculateNutrition } from './components/db-nutrition-calc';
 
 // Mock data - replace with your API/props
 const mockMealData = {
@@ -74,8 +74,9 @@ export default function MealDetailsPage() {
   const [editAmount, setEditAmount] = useState('');
   const [mealData, setMealData] = useState(mockMealData);
 
+  // Nutrition flow: meal data passed from the nutrition/logging screen
   React.useEffect(() => {
-    if (params.mealData) { // Parses through params to get the meal data sent from the nutrition page
+    if (params.mealData) {
       try {
         const groupedMeal = JSON.parse(params.mealData as string);
         setMealData({
@@ -98,6 +99,37 @@ export default function MealDetailsPage() {
       }
     }
   }, [params.mealData]);
+
+  // Camera flow: classification matches passed from camera screen
+  useEffect(() => {
+    if (!params.matches) return;
+    const matchNames: string[] = JSON.parse(params.matches as string);
+    if (!matchNames.length) return;
+
+    const label = (params.classification as string) || 'Detected meal';
+
+    Promise.all(
+      matchNames.map((name, idx) =>
+        calculateNutrition(name, 1, 'serving').then((data: any) => ({
+          id: idx + 1,
+          name,
+          volume: '1',
+          amount: data?.servingSize || '1 serving',
+          calories: data?.calories ?? 0,
+          carbs: data?.totalCarbs ?? 0,
+          protein: data?.protein ?? 0,
+          fat: data?.totalFat ?? 0,
+          itemId: data?.itemId || '',
+        }))
+      )
+    ).then((foods) => {
+      setMealData({
+        mealName: label,
+        date: new Date().toLocaleDateString(),
+        foods,
+      });
+    }).catch((e) => console.error('Error fetching nutrition for matches:', e));
+  }, [params.matches]);
 
   const imageUri = params.imageUri as string || 'https://via.placeholder.com/300';
 

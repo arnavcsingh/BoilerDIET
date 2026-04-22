@@ -3,8 +3,10 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-// ── Swap this out when you have a remote server ──────────────────────────────
-const INFERENCE_SERVER_URL = "http://localhost:8000";
+// ── Inference server URL ──────────────────────────────────────────────────────
+// Routes /classify through the Node API server (same host the app already uses).
+// Override with EXPO_PUBLIC_API_URL env var for production deployments.
+const INFERENCE_SERVER_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://10.186.104.26:3000').replace(/\/$/, '');
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
