@@ -1,0 +1,22 @@
+import os
+from collections import Counter
+
+labels_dir = r"C:\Users\ricep\Downloads\yolotestlocal\vfndataset"
+
+names = ["almonds", "apple", "apple_pie", "apple_sauce", "avocado", "bacon", "bagel", "baked_beans", "baked_potato", "bananas", "beer", "biscuit", "black_beans", "blueberries", "boiled_egg", "breaded_fish", "broccoli", "brown_rice", "brownie", "burrito", "cabbage", "cake", "cantaloupe", "carrot", "cheese_burger", "cheese_sandwiches", "chicken_breast", "chicken_nugget", "chicken_tender", "chicken_thigh", "chicken_wing", "chips", "chocolate_milk", "cinnamon_bun", "coleslaw", "cookie", "corn", "cornbread", "croissant", "cupcake", "doughnut", "french_fries", "french_toast", "fried_egg", "fried_rice", "fruit_drink", "green_beans", "grilled_salmon", "hash_brown", "hot_dog", "ice_cream", "lasagna", "mac_and_cheese", "mashed_potatoes", "meat_loaf", "milk", "muffin", "omelet", "pancake", "pasta", "pizza", "pork_chop", "pork_rib", "quesadilla", "red_wine", "shrimp", "soup", "steak", "stew_beef", "strawberries", "sushi", "taco", "tomatoes", "tortillas", "tostada", "tuna_salad", "turkey", "waffle", "white_rice", "white_wine", "yeast_bread", "yogurt"]
+
+counts = Counter()
+
+for split in ["train", "val", "test"]:
+    folder = os.path.join(labels_dir, "labels", split)
+    for label_file in os.listdir(folder):
+        with open(os.path.join(folder, label_file)) as f:
+            for line in f:
+                counts[int(line.split()[0])] += 1
+
+print(f"{'ID':<6} {'Class':<25} {'Count':>8}")
+print("-" * 42)
+for i, name in enumerate(names):
+    print(f"{i:<6} {name:<25} {counts[i]:>8}")
+print("-" * 42)
+print(f"{'':6} {'TOTAL':<25} {sum(counts.values()):>8}")
