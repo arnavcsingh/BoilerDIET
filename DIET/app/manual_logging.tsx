@@ -2,14 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
-import { calculateNutrition, saveMealToDatabase, saveUserMeal } from './components/db-nutrition-calc';
+import { calculateNutrition, saveMealToDatabase, saveUserMeal, checkTraitConflicts } from './components/db-nutrition-calc';
+import { getUserData } from './components/db-users';
 import { useRouter } from 'expo-router';
 
 const getApiBase = () => {
   const fromGlobal = (global as any)?.NUTRITION_API_BASE;
   const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
   const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
-  return 'http://10.186.104.26:3000'.replace(/\/$/, '');
+  return 'http://100.69.152.211:3000'.replace(/\/$/, '');
 };
 
 // Attempt to derive servings from a serving size string.
@@ -58,7 +59,7 @@ export default function ManualLogging() {
   const [servingSize, setServingSize] = useState('1 serving');
   const [quantity, setQuantity] = useState('1');
   const [nutritionResult, setNutritionResult] = useState<NutritionResult | null>(null);
-  const [items, setItems] = useState<{ label: string; value: string; servingSize?: string }[]>([]);
+  const [items, setItems] = useState<{ label: string; value: string; servingSize?: string; itemId?: string; traits?: string }[]>([]);
   const [courts, setCourts] = useState<{ label: string; value: string }[]>([]);
   const [mealTypes, setMealTypes] = useState<{ label: string; value: string }[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
@@ -69,6 +70,8 @@ export default function ManualLogging() {
   const [totalProtein, setTotalProtein] = useState(0);
   const [totalCarbs, setTotalCarbs] = useState(0);
   const [totalFat, setTotalFat] = useState(0);
+  const [itemTraits, setItemTraits] = useState<string>('');
+  const [userAllergens, setUserAllergens] = useState<string>('');
 
       // Fetch dining courts and meal types on mount
       useEffect(() => {
@@ -92,6 +95,13 @@ export default function ManualLogging() {
             if (mounted && typesJson.ok) {
               const typesList = typesJson.mealTypes.map((t:string) => ({ label: t, value: t }));
               setMealTypes(typesList);
+            }
+
+            // Fetch user allergens
+            const userId = await AsyncStorage.getItem('userId');
+            if (userId && mounted) {
+              const userData = await getUserData(userId);
+              setUserAllergens(userData.allergens || '');
             }
           } catch (e) {
             console.warn('Failed to load dining courts or meal types', e);
@@ -132,6 +142,39 @@ export default function ManualLogging() {
         })();
         return () => { mounted = false; };
       }, [selectedCourt, selectedMealType]);
+
+  const saveItem = async () => {
+    try {
+      const itemsToSave = [{ food: nutritionResult!.food, amount: Number(quantity), unit: 'serving', servingLabel: servingSize, calories: Number(nutritionResult!.calories), protein: Number(nutritionResult!.protein), carbs: Number(nutritionResult!.carbs), fat: Number(nutritionResult!.fat) }];
+      const totals = { calories: Number(nutritionResult!.calories), protein: Number(nutritionResult!.protein), carbs: Number(nutritionResult!.carbs), fat: Number(nutritionResult!.fat) };
+      
+      await saveMealToDatabase(itemsToSave, totals);
+      setTotalCalories(totalCalories + Number(nutritionResult!.calories || 0));
+      setTotalProtein(totalProtein + Number(nutritionResult!.protein || 0));
+      setTotalCarbs(totalCarbs + Number(nutritionResult!.carbs || 0));
+      setTotalFat(totalFat + Number(nutritionResult!.fat || 0));
+
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'No user logged in. Please log in first.');
+        return;
+      }
+
+      await saveUserMeal({
+        userId: userId,
+        diningCourt: selectedCourt,
+        mealType: selectedMealType || 'lunch',
+        foodName: nutritionResult!.food,
+        servings: Number(quantity),
+        servingLabel: servingSize
+      });
+
+      Alert.alert('Saved', 'Added to Meal');
+    } catch (err:any) {
+      Alert.alert('Save failed', err.message || '');
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -220,6 +263,9 @@ export default function ManualLogging() {
                 setServingSize(it.servingSize);
                 setQuantity('1');
               }
+              if (it?.traits) {
+                setItemTraits(it.traits);
+              }
             }}
             placeholder={loadingItems ? 'Loading items...' : 'Select item'}
             style={styles.hallPicker}
@@ -278,36 +324,23 @@ export default function ManualLogging() {
       <TouchableOpacity
       style={[styles.submitButton, {marginTop:10}]}
       onPress={async () => {
-  if (!nutritionResult) { Alert.alert('No data', 'Calculate nutrition first'); return; }
-        try {
-          const itemsToSave = [{ food: nutritionResult.food, amount: Number(quantity), unit: 'serving', servingLabel: servingSize, calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) }];
-          const totals = { calories: Number(nutritionResult.calories), protein: Number(nutritionResult.protein), carbs: Number(nutritionResult.carbs), fat: Number(nutritionResult.fat) };
-          
-          // Save detailed meal (existing behavior)
-          await saveMealToDatabase(itemsToSave, totals);
-          setTotalCalories(totalCalories + Number(nutritionResult.calories || 0));
-          setTotalProtein(totalProtein + Number(nutritionResult.protein || 0));
-          setTotalCarbs(totalCarbs + Number(nutritionResult.carbs || 0));
-          setTotalFat(totalFat + Number(nutritionResult.fat || 0));
-          console.log(totalCalories, totalProtein, totalCarbs, totalFat);
-          // Get logged-in user's ID from AsyncStorage
-          const userId = await AsyncStorage.getItem('userId');
-          if (!userId) {
-            Alert.alert('Error', 'No user logged in. Please log in first.');
-            return;
-          }
-
-          await saveUserMeal({
-            userId: userId,
-            diningCourt: selectedCourt,
-            mealType: selectedMealType || 'lunch',
-            foodName: nutritionResult.food,
-            servings: Number(quantity),
-            servingLabel: servingSize
-          });
-
-          Alert.alert('Saved', 'Added to Meal');
-        } catch (err:any) { Alert.alert('Save failed', err.message || ''); }
+        if (!nutritionResult) { Alert.alert('No data', 'Calculate nutrition first'); return; }
+        
+        // Check for trait conflicts
+        const conflicts = checkTraitConflicts(itemTraits, userAllergens);
+        if (conflicts.length > 0) {
+          Alert.alert(
+            'Allergen/Restriction Alert',
+            conflicts.join('\n'),
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Continue Anyway', onPress: () => saveItem() }
+            ]
+          );
+          return;
+        }
+        
+        await saveItem();
       }}
     >
       <Text style={styles.submitButtonText}>Add to Meal</Text>
