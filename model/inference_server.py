@@ -13,12 +13,12 @@ import io
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
 from ultralytics import YOLO
 
-from .embedding_classification import get_model, get_todays_embedding_map, top_5_menu_matches
+from .embedding_classification import get_model, get_todays_embedding_map, top_5_menu_matches, top_5_matches_filtered
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEFAULT_WEIGHTS_PATH = os.path.abspath(
@@ -93,7 +93,7 @@ def health():
 
 
 @app.post("/classify")
-async def classify(image: UploadFile = File(...)):
+async def classify(image: UploadFile = File(...), court: str = Form(None), meal_type: str = Form(None)):
     # ── Input validation ──────────────────────────────────────────────────────
     if image.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -132,10 +132,11 @@ async def classify(image: UploadFile = File(...)):
 
     # ── Embedding similarity ──────────────────────────────────────────────────
     query = label.replace("_", " ").strip() if label else ""
-    matches: list[str] = top_5_menu_matches(query) if query else []
+    matches: list[str] = top_5_matches_filtered(query, court, meal_type) if query else []
 
     print(f"[inference] detections={len(detected_classes)} classes={detected_classes}")
     print(f"[inference] label={label or '(none)'} confidence={round(confidence, 4)}")
+    print(f"[inference] court={court or '(none)'} meal_type={meal_type or '(none)'}")
     print(f"[inference] top5={matches}")
 
     return JSONResponse(

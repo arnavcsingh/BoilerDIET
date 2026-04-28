@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -12,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { calculateNutrition, deleteUserMeal, editUserMeal } from './components/db-nutrition-calc';
+import { calculateNutrition, deleteUserMeal, editUserMeal, saveUserMeal } from './components/db-nutrition-calc';
 
 type FoodItem = {
   id: number | string;
@@ -69,6 +70,8 @@ export default function MealDetailsPage() {
 
   const classificationLabel = (params.classification as string) || 'Detected meal';
   const imageUri = (params.imageUri as string) || 'https://via.placeholder.com/300';
+  const cameraCourt = (params.court as string) || null;
+  const cameraMealType = (params.mealType as string) || 'Lunch';
 
   useEffect(() => {
     if (!params.mealData) return;
@@ -133,6 +136,8 @@ export default function MealDetailsPage() {
   const openServingsForFood = (foodName: string) => {
     setSelectedFoodName(foodName);
     setSelectedServings('1');
+    setShowSuggestionModal(false);
+    setShowManualPickerModal(false);
     setShowServingModal(true);
   };
 
@@ -169,6 +174,24 @@ export default function MealDetailsPage() {
       setShowServingModal(false);
       setShowSuggestionModal(false);
       setShowManualPickerModal(false);
+
+      // Save to meal history
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          await saveUserMeal({
+            userId,
+            diningCourt: cameraCourt,
+            mealType: cameraMealType,
+            foodName,
+            servings,
+            servingLabel: data?.servingSize || '',
+          });
+          Alert.alert('Saved', 'Meal added to history');
+        }
+      } catch (saveErr: any) {
+        console.warn('Failed to save meal to history:', saveErr.message);
+      }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to fetch nutrition for selected item');
     } finally {
@@ -379,7 +402,10 @@ export default function MealDetailsPage() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalCancelButton}
-                onPress={() => setShowServingModal(false)}
+                onPress={() => {
+                  setShowServingModal(false);
+                  if (!showManualPickerModal) setShowSuggestionModal(true);
+                }}
                 disabled={applyingSelection}
               >
                 <Text style={styles.modalButtonText}>Cancel</Text>

@@ -116,6 +116,66 @@ def top_5_menu_matches(query: str) -> list[str]:
     return [items[index] for index in top_indices]
 
 
+def get_filtered_menu_items(court: str, meal_type: str | None = None) -> list[str]:
+    """Return menu item names for a specific dining court (and optional meal type) for today."""
+    sql = """
+        SELECT DISTINCT f.Name
+        FROM diningcourthistory d
+        JOIN foods f ON d.ItemId = f.ItemId
+        WHERE d.Date = %s
+          AND d.DiningCourt = %s
+          AND f.Name IS NOT NULL
+          AND f.Name <> ''
+    """
+    params: list = [date.today().isoformat(), court]
+
+    if meal_type:
+        sql += " AND d.MealType = %s"
+        params.append(meal_type)
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return [row["Name"] for row in rows]
+
+
+def top_5_matches_filtered(query: str, court: str | None, meal_type: str | None) -> list[str]:
+    """Top-5 matches filtered to a specific dining court/meal type.
+    Falls back to today's full menu if no court is provided or filtered list is empty."""
+    if not court:
+        return top_5_menu_matches(query)
+
+    filtered_items = get_filtered_menu_items(court, meal_type)
+    if not filtered_items:
+        # Fallback: no items for that court today, use full menu
+        return top_5_menu_matches(query)
+
+    model = get_model()
+    query_embedding = model.encode(
+        normalize(query),
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+    )
+
+    normalized_items = [normalize(item) for item in filtered_items]
+    item_embeddings = model.encode(
+        normalized_items,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+    )
+
+    scores = item_embeddings @ query_embedding
+    top_k = min(5, len(filtered_items))
+    top_indices = np.argsort(scores)[-top_k:][::-1]
+
+    return [filtered_items[i] for i in top_indices]
+
+
 def main() -> None:
     print("Loading model once...")
     get_model()

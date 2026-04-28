@@ -1,11 +1,9 @@
 import { Camera, CameraView } from "expo-camera";
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 // ── Inference server URL ──────────────────────────────────────────────────────
-// Routes /classify through the Node API server (same host the app already uses).
-// Override with EXPO_PUBLIC_NUTRITION_API_BASE env var for production deployments.
 const INFERENCE_SERVER_URL = (
   (global as any)?.NUTRITION_API_BASE ||
   process.env.EXPO_PUBLIC_NUTRITION_API_BASE ||
@@ -15,7 +13,9 @@ const INFERENCE_SERVER_URL = (
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const CIRCLE_SIZE = SCREEN_WIDTH * 0.8; // 80% of screen width
+const CIRCLE_SIZE = SCREEN_WIDTH * 0.8;
+
+const MEAL_TYPES = ['Breakfast', 'Brunch', 'Lunch', 'Late Lunch', 'Dinner'];
 
 export default function App() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -26,12 +26,43 @@ export default function App() {
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
-  // Flipping the camera
+  // ── Dining context setup modal ──────────────────────────────────────────────
+  const [showSetupModal, setShowSetupModal] = useState(true);
+  const [courts, setCourts] = useState<string[]>([]);
+  const [loadingSetup, setLoadingSetup] = useState(true);
+  const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState<string>('Lunch');
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Fetch dining courts on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${INFERENCE_SERVER_URL}/diningcourts`);
+        const json = await res.json();
+        if (json.ok && Array.isArray(json.courts)) {
+          setCourts(json.courts);
+        }
+      } catch (e) {
+        console.warn('Failed to load dining courts', e);
+      } finally {
+        setLoadingSetup(false);
+      }
+    })();
+  }, []);
+
+  // Request camera permissions
+  useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === "granted");
+    })();
+  }, []);
+
   const toggleCameraType = () => {
     setType(prevType => (prevType === 'back' ? 'front' : 'back'));
   };
 
-  // Take photo function
   const takePicture = async () => {
     if (cameraRef.current) {
       const photo = await cameraRef.current.takePictureAsync();
@@ -39,12 +70,11 @@ export default function App() {
     }
   };
 
-  // Retake photo function
   const retakePhoto = () => {
     setPhoto(null);
   };
 
-  // Save photo function — POSTs image to inference server, then navigates
+  // Save photo — POSTs image + dining context to classify, then navigates
   const savePhoto = async () => {
     if (!photo) return;
 
@@ -60,6 +90,10 @@ export default function App() {
         name: 'photo.jpg',
         type: 'image/jpeg',
       } as any);
+      if (selectedCourt) {
+        formData.append('court', selectedCourt);
+      }
+      formData.append('meal_type', selectedMealType);
 
       const response = await fetch(`${INFERENCE_SERVER_URL}/classify`, {
         method: 'POST',
@@ -71,7 +105,6 @@ export default function App() {
       }
 
       const result = await response.json();
-      // result expected shape: { label: string, matches: string[] }
 
       router.push({
         pathname: '/meal_information',
@@ -79,6 +112,8 @@ export default function App() {
           imageUri,
           classification: result.label ?? '',
           matches: JSON.stringify(result.matches ?? []),
+          court: selectedCourt ?? '',
+          mealType: selectedMealType,
         },
       });
     } catch (err: any) {
@@ -87,14 +122,6 @@ export default function App() {
       setSubmitting(false);
     }
   };
-
-  // Request camera permissions
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === "granted");
-    })();
-  }, []);
 
   if (hasPermission === null) {
     return <View />;
@@ -126,16 +153,72 @@ export default function App() {
     );
   }
 
-  // Camera view with circular frame overlay
+  // Camera view with circular frame overlay + dining setup modal
   return (
     <View style={styles.container}>
+      {/* Dining context setup modal */}
+      <Modal visible={showSetupModal} transparent animationType="slide">
+        <View style={styles.setupOverlay}>
+          <View style={styles.setupModal}>
+            <Text style={styles.setupTitle}>Where are you eating?</Text>
+            <Text style={styles.setupSubtitle}>This helps us find better matches for your food</Text>
+
+            <Text style={styles.setupSectionLabel}>Dining Court</Text>
+            {loadingSetup ? (
+              <ActivityIndicator color="#CFB991" style={{ marginVertical: 12 }} />
+            ) : (
+              <ScrollView style={styles.setupList} showsVerticalScrollIndicator={false}>
+                {courts.map((court) => (
+                  <TouchableOpacity
+                    key={court}
+                    style={[styles.setupChoice, selectedCourt === court && styles.setupChoiceSelected]}
+                    onPress={() => setSelectedCourt(court)}
+                  >
+                    <Text style={[styles.setupChoiceText, selectedCourt === court && styles.setupChoiceTextSelected]}>
+                      {court}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            <Text style={styles.setupSectionLabel}>Meal Type</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mealTypeRow}>
+              {MEAL_TYPES.map((mt) => (
+                <TouchableOpacity
+                  key={mt}
+                  style={[styles.mealTypeChip, selectedMealType === mt && styles.mealTypeChipSelected]}
+                  onPress={() => setSelectedMealType(mt)}
+                >
+                  <Text style={[styles.mealTypeChipText, selectedMealType === mt && styles.mealTypeChipTextSelected]}>
+                    {mt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.setupButtonRow}>
+              <TouchableOpacity
+                style={styles.setupSkipButton}
+                onPress={() => { setSelectedCourt(null); setShowSetupModal(false); }}
+              >
+                <Text style={styles.setupSkipText}>Skip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.setupContinueButton, !selectedCourt && styles.setupContinueButtonDisabled]}
+                onPress={() => { if (selectedCourt) setShowSetupModal(false); }}
+                disabled={!selectedCourt}
+              >
+                <Text style={styles.setupContinueText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CameraView style={styles.camera} facing={type} ref={cameraRef}>
-        {/* Circular Frame Overlay */}
         <View style={styles.overlay}>
-          {/* Top dark overlay */}
           <View style={styles.overlayTop} />
-          
-          {/* Middle row with circle cutout */}
           <View style={styles.overlayMiddle}>
             <View style={styles.overlaySide} />
             <View style={styles.circleFrame}>
@@ -143,18 +226,20 @@ export default function App() {
             </View>
             <View style={styles.overlaySide} />
           </View>
-          
-          {/* Bottom dark overlay */}
           <View style={styles.overlayBottom} />
-          
-          {/* Helper text */}
           <View style={styles.instructionContainer}>
             <Text style={styles.instructionText}>Center the plate in the circle</Text>
           </View>
         </View>
       </CameraView>
 
-      {/* Camera controls */}
+      {/* Context badge */}
+      {selectedCourt ? (
+        <TouchableOpacity style={styles.contextBadge} onPress={() => setShowSetupModal(true)}>
+          <Text style={styles.contextBadgeText}>{selectedCourt} · {selectedMealType}</Text>
+        </TouchableOpacity>
+      ) : null}
+
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button} onPress={takePicture}>
           <Text style={styles.buttonText}>Take Photo</Text>
@@ -262,6 +347,132 @@ const styles = StyleSheet.create({
   instructionText: {
     color: '#CFB991',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Dining setup modal styles
+  setupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
+  },
+  setupModal: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: '85%',
+  },
+  setupTitle: {
+    color: '#CFB991',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  setupSubtitle: {
+    color: '#aaa',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  setupSectionLabel: {
+    color: '#CFB991',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  setupList: {
+    maxHeight: 220,
+    marginBottom: 12,
+  },
+  setupChoice: {
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 6,
+    backgroundColor: '#2a2a2a',
+  },
+  setupChoiceSelected: {
+    backgroundColor: '#CFB991',
+  },
+  setupChoiceText: {
+    color: '#fff',
+    fontSize: 15,
+  },
+  setupChoiceTextSelected: {
+    color: '#000',
+    fontWeight: '700',
+  },
+  mealTypeRow: {
+    flexDirection: 'row',
+    marginBottom: 24,
+  },
+  mealTypeChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#2a2a2a',
+    marginRight: 8,
+  },
+  mealTypeChipSelected: {
+    backgroundColor: '#CFB991',
+  },
+  mealTypeChipText: {
+    color: '#fff',
+    fontSize: 13,
+  },
+  mealTypeChipTextSelected: {
+    color: '#000',
+    fontWeight: '700',
+  },
+  setupButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  setupSkipButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#333',
+    alignItems: 'center',
+  },
+  setupSkipText: {
+    color: '#aaa',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  setupContinueButton: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#CFB991',
+    alignItems: 'center',
+  },
+  setupContinueButtonDisabled: {
+    backgroundColor: '#555',
+  },
+  setupContinueText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  contextBadge: {
+    position: 'absolute',
+    top: 50,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(207, 185, 145, 0.9)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  contextBadgeText: {
+    color: '#000',
+    fontSize: 13,
     fontWeight: '600',
   },
 });
