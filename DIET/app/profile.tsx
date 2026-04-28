@@ -221,7 +221,7 @@ export default function ProfileScreen() {
         <Text style={styles.backButtonText}>Back to Home</Text>
       </TouchableOpacity>
 
-      // Displays the modal to edit user profile fields
+      {/* Displays the modal to edit user profile fields */}
       <Modal visible={editingField !== null} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>

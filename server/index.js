@@ -20,6 +20,28 @@ function parseServingLabelToGrams(servingLabel = '') {
 
 app.get('/health', (req, res) => res.json({ ok: true, timestamp: Date.now() }));
 
+// POST /classify — proxy multipart image to Python inference server
+app.post('/classify', async (req, res) => {
+  try {
+    const inferenceUrl = process.env.INFERENCE_SERVER_URL ?? 'http://localhost:8000';
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      const body = Buffer.concat(chunks);
+      const response = await fetch(`${inferenceUrl}/classify`, {
+        method: 'POST',
+        headers: { 'content-type': req.headers['content-type'] },
+        body,
+      });
+      const data = await response.json();
+      res.status(response.status).json(data);
+    });
+  } catch (err) {
+    console.error('classify proxy error:', err);
+    res.status(502).json({ ok: false, error: 'Inference server unreachable' });
+  }
+});
+
 // GET /nutrition?food=Rice&amount=1&unit=serving
 app.get('/nutrition', async (req, res) => {
   try {

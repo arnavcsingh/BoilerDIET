@@ -1,7 +1,8 @@
 import os
 from datetime import date
 
-import mysql.connector
+import pymysql
+import pymysql.cursors
 import numpy as np
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
@@ -17,7 +18,7 @@ def normalize(text: str) -> str:
     return text.replace("_", " ").lower().strip()
 
 
-def get_db_connection() -> mysql.connector.MySQLConnection:
+def get_db_connection() -> pymysql.connections.Connection:
     load_dotenv()
     password = os.getenv("DB_PASSWORD")
     database = os.getenv("DB_NAME")
@@ -27,11 +28,12 @@ def get_db_connection() -> mysql.connector.MySQLConnection:
     if not database:
         raise ValueError("Missing DB_NAME in environment/.env")
 
-    return mysql.connector.connect(
+    return pymysql.connect(
         host=host,
         user=user,
         password=password,
         database=database,
+        cursorclass=pymysql.cursors.DictCursor,
     )
 
 
@@ -53,7 +55,7 @@ def get_todays_menu_items() -> list[str]:
     finally:
         conn.close()
 
-    return [row[0] for row in rows]
+    return [row["Name"] for row in rows]
 
 
 def get_model() -> SentenceTransformer:
