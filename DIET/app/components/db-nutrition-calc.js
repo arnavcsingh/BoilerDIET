@@ -16,11 +16,41 @@ const DEFAULT_BASES = [
 	'http://127.0.0.1:3000'
 ];
 
+const ALLERGENS = ['Eggs', 'Gluten', 'Milk', 'Soy', 'Sesame', 'Wheat'];
+const DIETARY_RESTRICTIONS = ['Vegetarian', 'Vegan'];
+
 function resolveBase(baseUrl) {
 	const fromGlobal = global?.NUTRITION_API_BASE;
 	const fromEnv = process?.env?.EXPO_PUBLIC_NUTRITION_API_BASE;
 	const fallback = DEFAULT_BASES[0];
 	return (baseUrl || fromGlobal || fromEnv || fallback).replace(/\/$/, '');
+}
+
+export function checkTraitConflicts(itemTraitsStr, userAllergensStr) {
+	let itemTraits = [];
+	try {
+		if (itemTraitsStr) itemTraits = JSON.parse(itemTraitsStr);
+	} catch (e) {
+		itemTraits = [];
+	}
+	
+	const userAllergens = userAllergensStr ? userAllergensStr.split(',').map(a => a.trim()) : [];
+	
+	const conflicts = [];
+	
+	ALLERGENS.forEach(allergen => {
+		if (userAllergens.includes(allergen) && itemTraits.includes(allergen)) {
+			conflicts.push(`⚠️ Contains ${allergen}`);
+		}
+	});
+	
+	DIETARY_RESTRICTIONS.forEach(restriction => {
+		if (userAllergens.includes(restriction) && !itemTraits.includes(restriction)) {
+			conflicts.push(`⚠️ Not ${restriction}`);
+		}
+	});
+	
+	return conflicts;
 }
 
 async function getJson(url, opts) {

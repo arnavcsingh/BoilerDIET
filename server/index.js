@@ -201,8 +201,7 @@ app.get('/menu', async (req, res) => {
     if (!court) return res.status(400).json({ ok: false, error: 'court query required' });
     
     const conn = await mysql.createConnection(configureDB);
-    // Use lowercase column names matching actual DB schema (itemId, name, servingSize)
-    let sql = `SELECT DISTINCT f.name, f.servingSize FROM diningcourthistory dch
+    let sql = `SELECT DISTINCT f.itemId, f.name, f.servingSize, f.Traits FROM diningcourthistory dch
                JOIN foods f ON dch.ItemId = f.itemId
                WHERE dch.DiningCourt = ?`;
     const params = [court];
@@ -229,7 +228,9 @@ app.get('/menu', async (req, res) => {
         items.push({
           label: foodName,
           value: `${foodName}_${idx}`, // Unique value to prevent React duplicate key errors
-          servingSize: r.servingSize || '100g'
+          servingSize: r.servingSize || '100g',
+          itemId: r.itemId,
+          traits: r.Traits || '[]'
         });
       }
     });
