@@ -1,8 +1,8 @@
 const getApiBase = () => {
   const fromGlobal = global?.NUTRITION_API_BASE;
   const fromEnv = process?.env?.EXPO_PUBLIC_NUTRITION_API_BASE;
-  const base = (fromGlobal || fromEnv || 'http://10.0.2.2:3000').replace(/\/$/, '');
-  return 'http://10.186.104.26:3000'.replace(/\/$/, '');
+	const fallback = 'http://10.0.2.2:3000';
+	return (fromGlobal || fromEnv || fallback).replace(/\/$/, '');
 };
 
 export async function login(email, password) {

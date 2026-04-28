@@ -17,10 +17,10 @@ const DEFAULT_BASES = [
 ];
 
 function resolveBase(baseUrl) {
-	//if (baseUrl) return baseUrl;
-	//if (global?.NUTRITION_API_BASE) return global.NUTRITION_API_BASE;
-	// Pick the first likely host; the developer can override when needed.
-	return 'http://10.186.104.26:3000';
+	const fromGlobal = global?.NUTRITION_API_BASE;
+	const fromEnv = process?.env?.EXPO_PUBLIC_NUTRITION_API_BASE;
+	const fallback = DEFAULT_BASES[0];
+	return (baseUrl || fromGlobal || fromEnv || fallback).replace(/\/$/, '');
 }
 
 async function getJson(url, opts) {

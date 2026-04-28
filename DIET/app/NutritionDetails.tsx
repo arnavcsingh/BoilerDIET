@@ -3,6 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
+const getApiBase = () => {
+  const fromGlobal = (global as any)?.NUTRITION_API_BASE;
+  const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
+  const fallback = 'http://10.0.2.2:3000';
+  return (fromGlobal || fromEnv || fallback).replace(/\/$/, '');
+};
+
 interface NutritionData {
   itemId: string;
   name: string;
@@ -39,7 +46,7 @@ const NutritionDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`http://10.186.104.26:3000/food/${itemId}`)
+    axios.get(`${getApiBase()}/food/${itemId}`)
       .then((response) => {
         setNutrition(response.data.data);
         setLoading(false);

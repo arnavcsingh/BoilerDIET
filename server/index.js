@@ -18,6 +18,13 @@ function parseServingLabelToGrams(servingLabel = '') {
   return 100;
 }
 
+function toLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 app.get('/health', (req, res) => res.json({ ok: true, timestamp: Date.now() }));
 
 // POST /classify — proxy multipart image to Python inference server
@@ -233,8 +240,7 @@ app.post('/usermeals', async (req, res) => {
     // Store the number of servings directly (no conversion to grams needed since DB stores per-serving)
     const numServings = Number(servings || 1);
 
-    const today = new Date();
-    const dateOnly = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    const dateOnly = toLocalDateString();
 
     await conn.execute(
       `INSERT INTO usermeals (UserId, Date, MealType, DiningCourt, ItemId, Volume)
@@ -275,13 +281,16 @@ app.get('/userstreak', async (req, res) => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const dates = rows.map(r => r.Date);
+    const dates = rows.map(r => {
+      if (r.Date instanceof Date) return toLocalDateString(r.Date);
+      return String(r.Date).slice(0, 10);
+    });
     let streak = 0;
     let checkDate = today;
 
     // Check if user logged today or yesterday to start the streak
-    const todayStr = today.toISOString().slice(0, 10);
-    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const todayStr = toLocalDateString(today);
+    const yesterdayStr = toLocalDateString(yesterday);
 
     if (dates.includes(todayStr)) {
       checkDate = today;
@@ -298,7 +307,7 @@ app.get('/userstreak', async (req, res) => {
     while (true) {
       const prevDate = new Date(checkDate);
       prevDate.setDate(prevDate.getDate() - 1);
-      const prevDateStr = prevDate.toISOString().slice(0, 10);
+      const prevDateStr = toLocalDateString(prevDate);
 
       if (dates.includes(prevDateStr)) {
         streak++;
@@ -323,7 +332,7 @@ app.get('/usermeals', async (req, res) => {
 
     const conn = await mysql.createConnection(configureDB);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateString();
     const start = startDate || date || today;
     const end = endDate || date || today;
 

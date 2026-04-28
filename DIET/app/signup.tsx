@@ -32,7 +32,7 @@ export default function SignUpPage() {
   // Function to validate phone number format (10 digits)
 
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     // Validation checks
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -54,21 +54,23 @@ export default function SignUpPage() {
       return;
     }
 
-    // TODO: In a real app, save user to database here
-    signup(firstName, lastName, email, password);
-    console.log('Sign up successful with:', { firstName, lastName, email, password });
-    
-    // Show success message
-    Alert.alert(
-      'Success',
-      'Account created successfully! Please login.',
-      [
-        {
-          text: 'OK',
-          onPress: () => router.push('/'), // Go back to login page
-        },
-      ]
-    );
+    try {
+      await signup(firstName, lastName, email, password);
+      console.log('Sign up successful with:', { firstName, lastName, email });
+
+      Alert.alert(
+        'Success',
+        'Account created successfully! Please login.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/'),
+          },
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Sign up failed. Please try again.');
+    }
   };
 
   // Function to navigate back to login page

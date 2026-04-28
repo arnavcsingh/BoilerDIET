@@ -59,7 +59,10 @@ export default function Nutrition() {
   const [streak, setStreak] = useState(0);
 
   const getApiBase = () => {
-    return 'http://10.186.99.255:3000'.replace(/\/$/, '');
+    const fromGlobal = (global as any)?.NUTRITION_API_BASE;
+    const fromEnv = process.env.EXPO_PUBLIC_NUTRITION_API_BASE;
+    const fallback = 'http://10.0.2.2:3000';
+    return (fromGlobal || fromEnv || fallback).replace(/\/$/, '');
   };
   
   

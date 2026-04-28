@@ -5,8 +5,12 @@ import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacit
 
 // ── Inference server URL ──────────────────────────────────────────────────────
 // Routes /classify through the Node API server (same host the app already uses).
-// Override with EXPO_PUBLIC_API_URL env var for production deployments.
-const INFERENCE_SERVER_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://10.186.104.26:3000').replace(/\/$/, '');
+// Override with EXPO_PUBLIC_NUTRITION_API_BASE env var for production deployments.
+const INFERENCE_SERVER_URL = (
+  (global as any)?.NUTRITION_API_BASE ||
+  process.env.EXPO_PUBLIC_NUTRITION_API_BASE ||
+  'http://10.0.2.2:3000'
+).replace(/\/$/, '');
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
