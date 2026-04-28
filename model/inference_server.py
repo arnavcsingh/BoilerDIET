@@ -21,21 +21,48 @@ from ultralytics import YOLO
 from .embedding_classification import get_model, get_todays_embedding_map, top_5_menu_matches
 
 # ── Config ────────────────────────────────────────────────────────────────────
-WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), "runs", "detect", "train", "weights", "best.pt")
-CONFIDENCE_THRESHOLD = 0.25
+DEFAULT_WEIGHTS_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "modeltorun", "best.pt")
+)
+FALLBACK_WEIGHTS_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "runs", "detect", "train", "weights", "best.pt")
+)
+ENV_WEIGHTS_PATH = os.environ.get("YOLO_WEIGHTS_PATH")
+CONFIDENCE_THRESHOLD = 0.10
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 # ── State shared across requests ──────────────────────────────────────────────
 _yolo_model: YOLO | None = None
 _models_loaded = False
+_loaded_weights_path = ""
+
+
+def resolve_weights_path() -> str:
+    if ENV_WEIGHTS_PATH:
+        env_path = os.path.abspath(ENV_WEIGHTS_PATH)
+        if os.path.exists(env_path):
+            return env_path
+        raise FileNotFoundError(f"YOLO_WEIGHTS_PATH does not exist: {env_path}")
+
+    if os.path.exists(DEFAULT_WEIGHTS_PATH):
+        return DEFAULT_WEIGHTS_PATH
+
+    if os.path.exists(FALLBACK_WEIGHTS_PATH):
+        return FALLBACK_WEIGHTS_PATH
+
+    raise FileNotFoundError(
+        "No YOLO weights file found. Checked: "
+        f"{DEFAULT_WEIGHTS_PATH}, {FALLBACK_WEIGHTS_PATH}"
+    )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _yolo_model, _models_loaded
-    print("Loading YOLO weights …")
-    _yolo_model = YOLO(WEIGHTS_PATH)
+    global _yolo_model, _models_loaded, _loaded_weights_path
+    _loaded_weights_path = resolve_weights_path()
+    print(f"Loading YOLO weights from: {_loaded_weights_path}")
+    _yolo_model = YOLO(_loaded_weights_path)
     print("YOLO ready.")
 
     print("Loading Sentence Transformer …")
@@ -58,7 +85,11 @@ app = FastAPI(title="DIET Inference Server", lifespan=lifespan)
 
 @app.get("/health")
 def health():
-    return {"ok": True, "models_loaded": _models_loaded}
+    return {
+        "ok": True,
+        "models_loaded": _models_loaded,
+        "weights_path": _loaded_weights_path,
+    }
 
 
 @app.post("/classify")
@@ -88,16 +119,24 @@ async def classify(image: UploadFile = File(...)):
     label: str = ""
     confidence: float = 0.0
 
+    detected_classes: list[str] = []
     if results and len(results[0].boxes) > 0:
         boxes = results[0].boxes
+        detected_classes = [
+            str(_yolo_model.names[int(cls_id)]) for cls_id in boxes.cls.tolist()
+        ]
         best_idx = int(boxes.conf.argmax())
         class_id = int(boxes.cls[best_idx])
         confidence = float(boxes.conf[best_idx])
         label = _yolo_model.names[class_id]
 
     # ── Embedding similarity ──────────────────────────────────────────────────
-    query = label if label else ""
+    query = label.replace("_", " ").strip() if label else ""
     matches: list[str] = top_5_menu_matches(query) if query else []
+
+    print(f"[inference] detections={len(detected_classes)} classes={detected_classes}")
+    print(f"[inference] label={label or '(none)'} confidence={round(confidence, 4)}")
+    print(f"[inference] top5={matches}")
 
     return JSONResponse(
         content={

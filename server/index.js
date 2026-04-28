@@ -41,6 +41,12 @@ app.post('/classify', async (req, res) => {
         body,
       });
       const data = await response.json();
+      if (response.ok) {
+        console.log('[classify] label:', data?.label || '(none)');
+        console.log('[classify] top5 matches:', Array.isArray(data?.matches) ? data.matches : []);
+      } else {
+        console.error('[classify] inference error response:', data);
+      }
       res.status(response.status).json(data);
     });
   } catch (err) {
@@ -160,6 +166,35 @@ app.get('/diningcourts', async (req, res) => {
 });
 
 // Get menu items for a dining court and optionally filter by meal type
+app.get('/menu/all', async (req, res) => {
+  try {
+    let limit = Number(req.query.limit) || 2000;
+    if (limit < 1) limit = 1;
+    if (limit > 5000) limit = 5000;
+
+    const conn = await mysql.createConnection(configureDB);
+    const [rows] = await conn.query(
+      `SELECT DISTINCT ItemId AS itemId, Name AS name, servingSize
+       FROM foods
+       WHERE Name IS NOT NULL
+       ORDER BY Name
+       LIMIT ${Math.trunc(limit)}`
+    );
+    await conn.end();
+
+    const items = rows.map((r) => ({
+      label: r.name,
+      value: r.itemId || r.name,
+      servingSize: r.servingSize || '1 serving',
+    }));
+
+    return res.json({ ok: true, items });
+  } catch (err) {
+    console.error('GET /menu/all error', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.get('/menu', async (req, res) => {
   try {
     const { court, mealType } = req.query;

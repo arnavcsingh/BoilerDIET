@@ -117,7 +117,7 @@ export default function App() {
             <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={savePhoto} disabled={submitting}>
               {submitting
                 ? <ActivityIndicator color="#000" />
-                : <Text style={styles.buttonText}>Save</Text>}
+                : <Text style={[styles.buttonText, styles.saveButtonText]}>Save</Text>}
             </TouchableOpacity>
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -196,6 +196,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: "#CFB991", // Gold/tan color for save button
+  },
+  saveButtonText: {
+    color: "#000000",
   },
   buttonText: {
     color: "#CFB991",
