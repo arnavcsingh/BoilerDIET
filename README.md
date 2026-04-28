@@ -218,4 +218,4 @@ server/
 
 ## Team
 
-Purdue VIP — IPAA II (BoilerDiet Spring 2026 and Fall 2026)
+Purdue VIP — IPAA II (BoilerDiet Spring 2026 and Fall 2025)
